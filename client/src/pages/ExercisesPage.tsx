@@ -3,7 +3,7 @@ import { useExercises, useCreateExercise } from "@/hooks/use-exercises";
 import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertExerciseSchema } from "@shared/schema";
+import { insertExerciseSchema, type Exercise } from "@shared/schema";
 import { z } from "zod";
 import {
   Dialog,
@@ -19,10 +19,24 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, PlayCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Search,
+  Plus,
+  PlayCircle,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Dumbbell,
+  Info
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const PAGE_SIZE = 30;
+
+function getYouTubeSearchUrl(exerciseName: string) {
+  const query = encodeURIComponent(`how to ${exerciseName} exercise form tutorial`);
+  return `https://www.youtube.com/results?search_query=${query}`;
+}
 
 export default function ExercisesPage() {
   const { data: exercises, isLoading } = useExercises();
@@ -30,6 +44,7 @@ export default function ExercisesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [page, setPage] = useState(0);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
 
   const categories = useMemo(() => {
     if (!exercises) return ["All"];
@@ -114,27 +129,25 @@ export default function ExercisesPage() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {pagedExercises.map((exercise) => (
-              <Card key={exercise.id} data-testid={`card-exercise-${exercise.id}`}>
+              <Card
+                key={exercise.id}
+                className="cursor-pointer hover-elevate"
+                onClick={() => setSelectedExercise(exercise)}
+                data-testid={`card-exercise-${exercise.id}`}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start gap-2">
                     <Badge variant="secondary" className="text-xs no-default-active-elevate">
                       {exercise.category}
                     </Badge>
+                    <Info className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   </div>
                   <CardTitle className="mt-2 text-lg font-display">{exercise.name}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent>
                   <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
-                    {exercise.instructions || "No specific instructions provided."}
+                    {exercise.instructions || "Tap to view details"}
                   </p>
-                  {exercise.videoUrl && (
-                    <Button variant="outline" size="sm" className="w-full gap-2" asChild>
-                      <a href={exercise.videoUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-video-${exercise.id}`}>
-                        <PlayCircle className="w-4 h-4" />
-                        Watch Demo
-                      </a>
-                    </Button>
-                  )}
                 </CardContent>
               </Card>
             ))}
@@ -175,7 +188,78 @@ export default function ExercisesPage() {
           )}
         </>
       )}
+
+      <ExerciseDetailDialog
+        exercise={selectedExercise}
+        onClose={() => setSelectedExercise(null)}
+      />
     </Layout>
+  );
+}
+
+function ExerciseDetailDialog({ exercise, onClose }: { exercise: Exercise | null; onClose: () => void }) {
+  if (!exercise) return null;
+
+  const youtubeSearchUrl = getYouTubeSearchUrl(exercise.name);
+  const hasDirectVideo = exercise.videoUrl && exercise.videoUrl.trim() !== "";
+
+  return (
+    <Dialog open={!!exercise} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-[550px] max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="secondary" className="no-default-active-elevate">
+              {exercise.category}
+            </Badge>
+          </div>
+          <DialogTitle className="text-2xl font-display mt-2" data-testid="text-detail-exercise-name">
+            {exercise.name}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Details and instructions for {exercise.name}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6 pt-2">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Dumbbell className="w-4 h-4 text-primary" />
+              How to Perform
+            </div>
+            <div className="rounded-md bg-secondary/30 p-4" data-testid="text-detail-instructions">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {exercise.instructions || "No detailed instructions available for this exercise yet."}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <PlayCircle className="w-4 h-4 text-primary" />
+              Video Tutorials
+            </div>
+
+            {hasDirectVideo && (
+              <Button variant="default" className="w-full gap-2" asChild>
+                <a href={exercise.videoUrl!} target="_blank" rel="noopener noreferrer" data-testid="link-direct-video">
+                  <PlayCircle className="w-4 h-4" />
+                  Watch Demo Video
+                  <ExternalLink className="w-3 h-3 ml-auto" />
+                </a>
+              </Button>
+            )}
+
+            <Button variant="outline" className="w-full gap-2" asChild>
+              <a href={youtubeSearchUrl} target="_blank" rel="noopener noreferrer" data-testid="link-youtube-search">
+                <PlayCircle className="w-4 h-4" />
+                Find Videos on YouTube
+                <ExternalLink className="w-3 h-3 ml-auto" />
+              </a>
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
