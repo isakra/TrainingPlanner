@@ -1,8 +1,8 @@
-# TEAMBUILDR
+# TRAININGPLANNER
 
 ## Overview
 
-TEAMBUILDR is a strength and conditioning platform for coaches and athletes. It allows coaches to create exercise libraries, build workout templates, assign workouts to athletes on specific dates, and track performance over time. Athletes can view their assigned training sessions, log their results, and monitor progress through analytics charts.
+TrainingPlanner is a strength and conditioning platform for coaches and athletes. It allows coaches to create exercise libraries, build workout templates, assign workouts to athletes on specific dates, and track performance over time. Athletes can view their assigned training sessions, log their results, and monitor progress through analytics charts.
 
 The app follows a full-stack TypeScript monorepo pattern with a React frontend, Express backend, and PostgreSQL database.
 

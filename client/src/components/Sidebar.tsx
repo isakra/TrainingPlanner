@@ -32,7 +32,7 @@ export function Sidebar() {
     <div className="h-screen w-64 bg-card border-r border-border flex flex-col fixed left-0 top-0">
       <div className="p-6 border-b border-border/50">
         <h1 className="text-2xl font-display font-bold text-primary tracking-wider italic">
-          TEAM<span className="text-foreground">BUILDR</span>
+          TRAINING<span className="text-foreground">PLANNER</span>
         </h1>
       </div>
 
