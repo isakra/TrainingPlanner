@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { exerciseData } from "./exercise-data";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -161,70 +162,21 @@ export async function registerRoutes(
 }
 
 async function seedDatabase() {
-    // Check if data exists
     const existing = await storage.getExercises();
-    if (existing.length > 0) return;
+    if (existing.length >= 100) return;
 
-    console.log("Seeding database...");
+    console.log(`Seeding database with ${exerciseData.length} exercises...`);
 
-    // Create Exercises
-    const squat = await storage.createExercise({
-        name: "Back Squat",
-        category: "Strength",
-        videoUrl: "https://www.youtube.com/embed/SW_C1A-rejs",
-        instructions: "Keep chest up, hips back."
-    });
-    
-    const bench = await storage.createExercise({
-        name: "Bench Press",
-        category: "Strength",
-        videoUrl: "https://www.youtube.com/embed/rT7DgCr-3pg",
-        instructions: "Keep feet planted, eyes under the bar."
-    });
+    const BATCH_SIZE = 50;
+    let count = 0;
+    for (let i = 0; i < exerciseData.length; i += BATCH_SIZE) {
+        const batch = exerciseData.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(ex => storage.createExercise(ex)));
+        count += batch.length;
+        if (count % 200 === 0) {
+            console.log(`  Seeded ${count}/${exerciseData.length} exercises...`);
+        }
+    }
 
-    const deadlift = await storage.createExercise({
-        name: "Deadlift",
-        category: "Strength", 
-        videoUrl: "https://www.youtube.com/embed/op9kVnSso6Q",
-        instructions: "Hinge at the hips, keep back straight."
-    });
-    
-    const boxJump = await storage.createExercise({
-        name: "Box Jump",
-        category: "Plyometrics",
-        instructions: "Land softly."
-    });
-
-    // Create Workout Template
-    const legDay = await storage.createWorkout({
-        name: "Hypertrophy Legs",
-        description: "Focus on quads and hamstrings.",
-        coachId: "mock-coach-id"
-    });
-
-    // Add Exercises to Workout
-    await storage.addExerciseToWorkout({
-        workoutId: legDay.id,
-        exerciseId: squat.id,
-        order: 1,
-        sets: 4,
-        reps: "8-10",
-        weight: "75%",
-        notes: "Control the eccentric"
-    });
-
-    await storage.addExerciseToWorkout({
-        workoutId: deadlift.id, // wait, exerciseId not workoutId? No, this is Deadlift. ID is exercise.id
-        // Typo in logic above, referencing deadlift.id as workoutId? No.
-        workoutId: legDay.id,
-        exerciseId: deadlift.id,
-        order: 2,
-        sets: 3,
-        reps: "5",
-        weight: "80%",
-    });
-    
-    // Create an assignment for "today" for a mock user (if they existed)
-    // We don't have a user ID yet, so skip assignment seeding or use a placeholder.
-    console.log("Database seeded!");
+    console.log(`Database seeded with ${exerciseData.length} exercises!`);
 }
