@@ -13,6 +13,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 export interface IStorage {
   // Exercises
   getExercises(): Promise<Exercise[]>;
+  getExerciseByName(name: string): Promise<Exercise | undefined>;
   createExercise(exercise: InsertExercise): Promise<Exercise>;
 
   // Workouts
@@ -35,6 +36,11 @@ export class DatabaseStorage implements IStorage {
   // Exercises
   async getExercises(): Promise<Exercise[]> {
     return await db.select().from(exercises);
+  }
+
+  async getExerciseByName(name: string): Promise<Exercise | undefined> {
+    const [exercise] = await db.select().from(exercises).where(eq(exercises.name, name)).limit(1);
+    return exercise;
   }
 
   async createExercise(exercise: InsertExercise): Promise<Exercise> {

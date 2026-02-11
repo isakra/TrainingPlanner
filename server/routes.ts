@@ -5,6 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { exerciseData } from "./exercise-data";
+import { premadeWorkouts } from "./premade-workouts";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -163,20 +164,52 @@ export async function registerRoutes(
 
 async function seedDatabase() {
     const existing = await storage.getExercises();
-    if (existing.length >= 100) return;
-
-    console.log(`Seeding database with ${exerciseData.length} exercises...`);
-
-    const BATCH_SIZE = 50;
-    let count = 0;
-    for (let i = 0; i < exerciseData.length; i += BATCH_SIZE) {
-        const batch = exerciseData.slice(i, i + BATCH_SIZE);
-        await Promise.all(batch.map(ex => storage.createExercise(ex)));
-        count += batch.length;
-        if (count % 200 === 0) {
-            console.log(`  Seeded ${count}/${exerciseData.length} exercises...`);
+    if (existing.length < 100) {
+        console.log(`Seeding database with ${exerciseData.length} exercises...`);
+        const BATCH_SIZE = 50;
+        let count = 0;
+        for (let i = 0; i < exerciseData.length; i += BATCH_SIZE) {
+            const batch = exerciseData.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(ex => storage.createExercise(ex)));
+            count += batch.length;
+            if (count % 200 === 0) {
+                console.log(`  Seeded ${count}/${exerciseData.length} exercises...`);
+            }
         }
+        console.log(`Database seeded with ${exerciseData.length} exercises!`);
     }
 
-    console.log(`Database seeded with ${exerciseData.length} exercises!`);
+    const existingWorkouts = await storage.getWorkouts();
+    const systemWorkouts = existingWorkouts.filter(w => w.coachId === "system");
+    if (systemWorkouts.length >= premadeWorkouts.length) return;
+
+    console.log(`Seeding ${premadeWorkouts.length} pre-made workouts...`);
+    for (const pw of premadeWorkouts) {
+        const existingByName = existingWorkouts.find(w => w.name === pw.name && w.coachId === "system");
+        if (existingByName) continue;
+
+        const workout = await storage.createWorkout({
+            name: pw.name,
+            description: `[${pw.level}] [${pw.sport}] ${pw.description}`,
+            coachId: "system",
+        });
+
+        for (const ex of pw.exercises) {
+            const exercise = await storage.getExerciseByName(ex.exerciseName);
+            if (!exercise) {
+                console.warn(`  Exercise not found: ${ex.exerciseName} (skipping)`);
+                continue;
+            }
+            await storage.addExerciseToWorkout({
+                workoutId: workout.id,
+                exerciseId: exercise.id,
+                order: ex.order,
+                sets: ex.sets,
+                reps: ex.reps,
+                weight: ex.weight || null,
+                notes: ex.notes || null,
+            });
+        }
+    }
+    console.log(`Pre-made workouts seeded!`);
 }
