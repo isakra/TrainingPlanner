@@ -419,4 +419,69 @@ export const premadeWorkouts: PremadeWorkout[] = [
       { exerciseName: "Dead Bug", sets: 3, reps: "10 each side", notes: "Core activation without spinal stress", order: 7 },
     ],
   },
+
+  // ============================================
+  // HYROX PROGRAMS
+  // ============================================
+  {
+    name: "Hyrox Race Simulation",
+    description: "Mirrors the 8 Hyrox race stations in order. Perform each station back-to-back with a 1km run (or 3-5 min cardio) between each. Build race-day pacing and transitions.",
+    level: "Intermediate",
+    sport: "Hyrox",
+    exercises: [
+      { exerciseName: "Ski Ergometer", sets: 1, reps: "1000m", notes: "Station 1 — steady pace, don't redline early", order: 1 },
+      { exerciseName: "Sled Push", sets: 1, reps: "50m", notes: "Station 2 — drive through legs, short quick steps", order: 2 },
+      { exerciseName: "Sled Pull", sets: 1, reps: "50m", notes: "Station 3 — hand-over-hand rope pull", order: 3 },
+      { exerciseName: "Burpee", sets: 1, reps: "80", notes: "Station 4 — Burpee Broad Jumps, pace yourself", order: 4 },
+      { exerciseName: "Rowing Machine", sets: 1, reps: "1000m", notes: "Station 5 — steady 2:00-2:10/500m split", order: 5 },
+      { exerciseName: "Farmer's Walk", sets: 1, reps: "200m", notes: "Station 6 — 24kg/16kg kettlebells, grip endurance", order: 6 },
+      { exerciseName: "Walking Lunge", sets: 1, reps: "100m", notes: "Station 7 — sandbag lunges, keep upright posture", order: 7 },
+      { exerciseName: "Wall Ball", sets: 1, reps: "100", notes: "Station 8 — full depth squat, hit the target line", order: 8 },
+    ],
+  },
+  {
+    name: "Hyrox Strength & Power",
+    description: "Build the strength foundation needed for Hyrox race stations. Focus on legs, grip, and pushing power to handle sled work, lunges, and carries under fatigue.",
+    level: "Intermediate",
+    sport: "Hyrox",
+    exercises: [
+      { exerciseName: "Front Squat", sets: 4, reps: "6-8", weight: "Moderate-heavy", notes: "Builds leg drive for sled push and wall balls", order: 1 },
+      { exerciseName: "Romanian Deadlift (Barbell)", sets: 4, reps: "8-10", notes: "Posterior chain strength for sled pull", order: 2 },
+      { exerciseName: "Sled Push", sets: 4, reps: "25m", notes: "Practice race-weight technique", order: 3 },
+      { exerciseName: "Farmer's Walk", sets: 3, reps: "60m", notes: "Heavy — build grip endurance beyond race weight", order: 4 },
+      { exerciseName: "Bulgarian Split Squat", sets: 3, reps: "10 each leg", notes: "Single-leg strength for lunges under fatigue", order: 5 },
+      { exerciseName: "Wall Ball", sets: 3, reps: "20", notes: "Focus on depth and rhythm", order: 6 },
+      { exerciseName: "Plank", sets: 3, reps: "45-60s", notes: "Core stability for carries and lunges", order: 7 },
+    ],
+  },
+  {
+    name: "Hyrox Conditioning & Endurance",
+    description: "High-rep conditioning session designed to build the aerobic engine and muscular endurance needed to sustain effort across all 8 Hyrox stations plus the running segments.",
+    level: "Intermediate",
+    sport: "Hyrox",
+    exercises: [
+      { exerciseName: "Rowing Machine", sets: 3, reps: "500m", notes: "90-second rest between sets, target sub 2:00/500m", order: 1 },
+      { exerciseName: "Ski Ergometer", sets: 3, reps: "500m", notes: "60-second rest, smooth pull rhythm", order: 2 },
+      { exerciseName: "Kettlebell Swing (Russian)", sets: 4, reps: "20", notes: "Hip hinge power endurance", order: 3 },
+      { exerciseName: "Wall Ball", sets: 4, reps: "25", notes: "Minimal rest, practice pacing", order: 4 },
+      { exerciseName: "Burpee", sets: 3, reps: "15", notes: "Controlled pace, focus on efficiency", order: 5 },
+      { exerciseName: "Walking Lunge", sets: 3, reps: "20 each leg", notes: "Bodyweight or light load for endurance", order: 6 },
+      { exerciseName: "Battle Rope Slam", sets: 3, reps: "30s", notes: "Max effort intervals for upper body conditioning", order: 7 },
+    ],
+  },
+  {
+    name: "Hyrox Beginner Prep",
+    description: "Entry-level program for athletes preparing for their first Hyrox race. Introduces all key movement patterns at manageable volume before progressing to race-specific training.",
+    level: "Beginner",
+    sport: "Hyrox",
+    exercises: [
+      { exerciseName: "Goblet Squat", sets: 3, reps: "12", notes: "Build squat pattern for wall balls and lunges", order: 1 },
+      { exerciseName: "Push-Up", sets: 3, reps: "10-15", notes: "Upper body pushing endurance for burpees", order: 2 },
+      { exerciseName: "Rowing Machine", sets: 3, reps: "300m", notes: "Learn pacing, 90-second rest", order: 3 },
+      { exerciseName: "Farmer's Walk", sets: 3, reps: "40m", notes: "Moderate weight, focus on posture and grip", order: 4 },
+      { exerciseName: "Walking Lunge", sets: 3, reps: "10 each leg", notes: "Bodyweight, upright torso", order: 5 },
+      { exerciseName: "Wall Ball", sets: 3, reps: "12", notes: "Light ball, learn the movement", order: 6 },
+      { exerciseName: "Dead Bug", sets: 3, reps: "10 each side", notes: "Core stability foundation", order: 7 },
+    ],
+  },
 ];
