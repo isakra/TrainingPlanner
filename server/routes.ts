@@ -300,6 +300,10 @@ export async function registerRoutes(
         assignmentId: Number(req.params.assignmentId),
         athleteId: userId,
         overallNotes: input.overallNotes,
+        avgHeartRate: input.heartRate?.avgHeartRate ?? undefined,
+        maxHeartRate: input.heartRate?.maxHeartRate ?? undefined,
+        minHeartRate: input.heartRate?.minHeartRate ?? undefined,
+        deviceName: input.heartRate?.deviceName ?? undefined,
       });
       await storage.upsertSetLogs(log.id, input.sets.map(s => ({
         logId: log.id,

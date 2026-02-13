@@ -96,6 +96,10 @@ export const workoutLogs = pgTable("workout_logs", {
   athleteId: text("athlete_id").notNull(),
   completedAt: timestamp("completed_at"),
   overallNotes: text("overall_notes"),
+  avgHeartRate: integer("avg_heart_rate"),
+  maxHeartRate: integer("max_heart_rate"),
+  minHeartRate: integer("min_heart_rate"),
+  deviceName: text("device_name"),
 });
 
 export const setLogs = pgTable("set_logs", {

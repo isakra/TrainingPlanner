@@ -64,7 +64,7 @@ export interface IStorage {
 
   // Logging
   getWorkoutLog(assignmentId: number): Promise<WorkoutLogWithSets | undefined>;
-  upsertWorkoutLog(data: { assignmentId: number; athleteId: string; overallNotes?: string; completedAt?: Date }): Promise<WorkoutLog>;
+  upsertWorkoutLog(data: { assignmentId: number; athleteId: string; overallNotes?: string; completedAt?: Date; avgHeartRate?: number | null; maxHeartRate?: number | null; minHeartRate?: number | null; deviceName?: string | null }): Promise<WorkoutLog>;
   upsertSetLogs(logId: number, sets: InsertSetLog[]): Promise<SetLog[]>;
 
   // Legacy (keep for backward compat)
@@ -346,11 +346,19 @@ export class DatabaseStorage implements IStorage {
     return { ...log, sets };
   }
 
-  async upsertWorkoutLog(data: { assignmentId: number; athleteId: string; overallNotes?: string; completedAt?: Date }): Promise<WorkoutLog> {
+  async upsertWorkoutLog(data: { assignmentId: number; athleteId: string; overallNotes?: string; completedAt?: Date; avgHeartRate?: number | null; maxHeartRate?: number | null; minHeartRate?: number | null; deviceName?: string | null }): Promise<WorkoutLog> {
     const existing = await db.select().from(workoutLogs).where(eq(workoutLogs.assignmentId, data.assignmentId)).limit(1);
+    const updateFields: any = {};
+    if (data.overallNotes !== undefined) updateFields.overallNotes = data.overallNotes;
+    if (data.completedAt !== undefined) updateFields.completedAt = data.completedAt;
+    if (data.avgHeartRate !== undefined) updateFields.avgHeartRate = data.avgHeartRate;
+    if (data.maxHeartRate !== undefined) updateFields.maxHeartRate = data.maxHeartRate;
+    if (data.minHeartRate !== undefined) updateFields.minHeartRate = data.minHeartRate;
+    if (data.deviceName !== undefined) updateFields.deviceName = data.deviceName;
+
     if (existing.length > 0) {
       const [updated] = await db.update(workoutLogs)
-        .set({ overallNotes: data.overallNotes, completedAt: data.completedAt })
+        .set(updateFields)
         .where(eq(workoutLogs.id, existing[0].id))
         .returning();
       return updated;

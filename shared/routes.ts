@@ -166,6 +166,12 @@ export const api = {
           rpe: z.number().nullable().optional(),
           notes: z.string().nullable().optional(),
         })),
+        heartRate: z.object({
+          avgHeartRate: z.number().nullable(),
+          maxHeartRate: z.number().nullable(),
+          minHeartRate: z.number().nullable(),
+          deviceName: z.string().nullable(),
+        }).optional(),
       }),
     },
     complete: {
