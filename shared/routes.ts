@@ -5,127 +5,200 @@ import {
   insertWorkoutExerciseSchema, 
   insertAssignmentSchema, 
   insertPerformanceLogSchema,
-  exercises,
-  workouts,
-  workoutExercises,
-  assignments,
-  performanceLogs
+  prescriptionSchema,
 } from './schema';
 
-// === ERROR SCHEMAS ===
 export const errorSchemas = {
-  validation: z.object({
-    message: z.string(),
-    field: z.string().optional(),
-  }),
-  notFound: z.object({
-    message: z.string(),
-  }),
-  internal: z.object({
-    message: z.string(),
-  }),
+  validation: z.object({ message: z.string(), field: z.string().optional() }),
+  notFound: z.object({ message: z.string() }),
+  internal: z.object({ message: z.string() }),
+  unauthorized: z.object({ message: z.string() }),
+  forbidden: z.object({ message: z.string() }),
 };
 
-// === API CONTRACT ===
 export const api = {
+  // User / Role
+  me: {
+    method: 'GET' as const,
+    path: '/api/me' as const,
+  },
+  setRole: {
+    method: 'POST' as const,
+    path: '/api/me/role' as const,
+    input: z.object({ role: z.enum(["COACH", "ATHLETE"]) }),
+  },
+  athletes: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/athletes' as const,
+    },
+  },
+
+  // Exercises
   exercises: {
     list: {
       method: 'GET' as const,
       path: '/api/exercises' as const,
-      responses: {
-        200: z.array(z.custom<typeof exercises.$inferSelect>()),
-      },
     },
     create: {
       method: 'POST' as const,
       path: '/api/exercises' as const,
       input: insertExerciseSchema,
-      responses: {
-        201: z.custom<typeof exercises.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
     },
   },
-  workouts: {
+
+  // Workout Templates
+  templates: {
     list: {
       method: 'GET' as const,
-      path: '/api/workouts' as const,
-      responses: {
-        200: z.array(z.custom<typeof workouts.$inferSelect>()),
-      },
-    },
-    create: {
-      method: 'POST' as const,
-      path: '/api/workouts' as const,
-      input: insertWorkoutSchema,
-      responses: {
-        201: z.custom<typeof workouts.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
+      path: '/api/templates' as const,
     },
     get: {
       method: 'GET' as const,
-      path: '/api/workouts/:id' as const,
-      responses: {
-        200: z.custom<typeof workouts.$inferSelect & { exercises: any[] }>(),
-        404: errorSchemas.notFound,
-      },
+      path: '/api/templates/:id' as const,
     },
+    clone: {
+      method: 'POST' as const,
+      path: '/api/templates/:id/clone' as const,
+    },
+  },
+
+  // Custom Workouts (Coach)
+  customWorkouts: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/custom-workouts' as const,
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/custom-workouts' as const,
+      input: z.object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+        difficulty: z.string().optional(),
+        equipment: z.array(z.string()).optional(),
+        estimatedDuration: z.number().optional(),
+        blocks: z.array(z.object({
+          title: z.string().min(1),
+          order: z.number(),
+          exercises: z.array(z.object({
+            name: z.string().min(1),
+            exerciseId: z.number().nullable().optional(),
+            order: z.number(),
+            prescriptionJson: prescriptionSchema.optional(),
+            notes: z.string().optional(),
+          })),
+        })),
+      }),
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/custom-workouts/:id' as const,
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/custom-workouts/:id' as const,
+      input: z.object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+        difficulty: z.string().optional(),
+        equipment: z.array(z.string()).optional(),
+        estimatedDuration: z.number().optional(),
+        blocks: z.array(z.object({
+          title: z.string().min(1),
+          order: z.number(),
+          exercises: z.array(z.object({
+            name: z.string().min(1),
+            exerciseId: z.number().nullable().optional(),
+            order: z.number(),
+            prescriptionJson: prescriptionSchema.optional(),
+            notes: z.string().optional(),
+          })),
+        })),
+      }),
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/custom-workouts/:id' as const,
+    },
+  },
+
+  // Assignments
+  coachAssignments: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/coach/assignments' as const,
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/coach/assignments' as const,
+      input: z.object({
+        athleteIds: z.array(z.string()).min(1),
+        sourceType: z.enum(["TEMPLATE", "CUSTOM"]),
+        sourceId: z.number(),
+        scheduledDate: z.string(),
+      }),
+    },
+  },
+  athleteAssignments: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/athlete/workouts' as const,
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/athlete/workouts/:assignmentId' as const,
+    },
+    log: {
+      method: 'POST' as const,
+      path: '/api/athlete/workouts/:assignmentId/log' as const,
+      input: z.object({
+        overallNotes: z.string().optional(),
+        sets: z.array(z.object({
+          exerciseName: z.string(),
+          setNumber: z.number(),
+          reps: z.number().nullable().optional(),
+          weight: z.string().nullable().optional(),
+          timeSeconds: z.number().nullable().optional(),
+          distanceMeters: z.number().nullable().optional(),
+          rpe: z.number().nullable().optional(),
+          notes: z.string().nullable().optional(),
+        })),
+      }),
+    },
+    complete: {
+      method: 'POST' as const,
+      path: '/api/athlete/workouts/:assignmentId/complete' as const,
+    },
+  },
+
+  // Coach viewing athlete logs
+  coachAthleteLog: {
+    method: 'GET' as const,
+    path: '/api/coach/assignments/:assignmentId/log' as const,
+  },
+
+  // Legacy
+  workouts: {
+    list: { method: 'GET' as const, path: '/api/workouts' as const },
+    create: { method: 'POST' as const, path: '/api/workouts' as const, input: insertWorkoutSchema },
+    get: { method: 'GET' as const, path: '/api/workouts/:id' as const },
     addExercise: {
       method: 'POST' as const,
       path: '/api/workouts/:id/exercises' as const,
       input: insertWorkoutExerciseSchema.omit({ workoutId: true }),
-      responses: {
-        201: z.custom<typeof workoutExercises.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
     }
   },
   assignments: {
-    list: { // Get assignments for logged in user or specific user
-      method: 'GET' as const,
-      path: '/api/assignments' as const, 
-      input: z.object({ userId: z.string().optional(), date: z.string().optional() }).optional(),
-      responses: {
-        200: z.array(z.custom<typeof assignments.$inferSelect & { workout: typeof workouts.$inferSelect }>()),
-      },
-    },
-    create: {
-      method: 'POST' as const,
-      path: '/api/assignments' as const,
-      input: insertAssignmentSchema,
-      responses: {
-        201: z.custom<typeof assignments.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
-    },
-    complete: {
-      method: 'PATCH' as const,
-      path: '/api/assignments/:id/complete' as const,
-      input: z.object({ completed: z.boolean() }),
-      responses: {
-        200: z.custom<typeof assignments.$inferSelect>(),
-        404: errorSchemas.notFound,
-      },
-    }
+    list: { method: 'GET' as const, path: '/api/assignments' as const, input: z.object({ userId: z.string().optional(), date: z.string().optional() }).optional() },
+    create: { method: 'POST' as const, path: '/api/assignments' as const, input: insertAssignmentSchema },
+    complete: { method: 'PATCH' as const, path: '/api/assignments/:id/complete' as const, input: z.object({ completed: z.boolean() }) },
   },
   performance: {
-    log: {
-      method: 'POST' as const,
-      path: '/api/performance' as const,
-      input: insertPerformanceLogSchema,
-      responses: {
-        201: z.custom<typeof performanceLogs.$inferSelect>(),
-        400: errorSchemas.validation,
-      },
-    },
-    history: {
-      method: 'GET' as const,
-      path: '/api/performance/:exerciseId' as const,
-      responses: {
-        200: z.array(z.custom<typeof performanceLogs.$inferSelect>()),
-      },
-    }
+    log: { method: 'POST' as const, path: '/api/performance' as const, input: insertPerformanceLogSchema },
+    history: { method: 'GET' as const, path: '/api/performance/:exerciseId' as const },
   }
 };
 

@@ -27,7 +27,7 @@ export function useAuth() {
     queryKey: ["/api/auth/user"],
     queryFn: fetchUser,
     retry: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
   const logoutMutation = useMutation({
@@ -37,11 +37,32 @@ export function useAuth() {
     },
   });
 
+  const setRoleMutation = useMutation({
+    mutationFn: async (role: "COACH" | "ATHLETE") => {
+      const res = await fetch("/api/me/role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to set role");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+  });
+
   return {
     user,
     isLoading,
     isAuthenticated: !!user,
+    isCoach: user?.role === "COACH",
+    isAthlete: user?.role === "ATHLETE",
+    hasRole: !!user?.role,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
+    setRole: setRoleMutation.mutate,
+    isSettingRole: setRoleMutation.isPending,
   };
 }

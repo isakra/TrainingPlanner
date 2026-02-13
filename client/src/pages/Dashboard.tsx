@@ -1,162 +1,251 @@
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/use-auth";
-import { useAssignments } from "@/hooks/use-assignments";
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "@/lib/api";
 import { format } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { ArrowRight, Trophy, Calendar, Dumbbell, Activity } from "lucide-react";
+import {
+  ArrowRight, Trophy, Calendar, Dumbbell, ClipboardList, Send, Users
+} from "lucide-react";
+import type { WorkoutTemplate, CustomWorkout, WorkoutAssignment } from "@shared/schema";
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const today = new Date();
-  const dateStr = format(today, "yyyy-MM-dd");
-  
-  const { data: assignments, isLoading } = useAssignments(user?.id, dateStr);
-
-  const todaysAssignment = assignments?.[0];
+  const { user, isCoach, isAthlete } = useAuth();
 
   return (
     <Layout>
       <header className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-foreground">
+        <h1 className="text-3xl font-display font-bold text-foreground" data-testid="text-welcome">
           Welcome back, {user?.firstName}
         </h1>
         <p className="text-muted-foreground mt-2">
-          {format(today, "EEEE, MMMM do, yyyy")}
+          {format(new Date(), "EEEE, MMMM do, yyyy")}
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Quick Stats Cards */}
-        <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 bg-primary/10 rounded-xl text-primary">
-              <Trophy className="w-8 h-8" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Streak</p>
-              <p className="text-2xl font-display font-bold">12 Days</p>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 bg-accent/10 rounded-xl text-accent">
-              <Dumbbell className="w-8 h-8" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Lifted</p>
-              <p className="text-2xl font-display font-bold">14,250 lbs</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 bg-green-500/10 rounded-xl text-green-500">
-              <Activity className="w-8 h-8" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Completion</p>
-              <p className="text-2xl font-display font-bold">94%</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Todays Workout Section */}
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-display font-semibold">Today's Training</h2>
-            <Link href="/training">
-              <Button variant="link" className="text-primary p-0">View Schedule</Button>
-            </Link>
-          </div>
-
-          {isLoading ? (
-            <div className="h-48 rounded-xl bg-secondary/50 animate-pulse" />
-          ) : todaysAssignment ? (
-            <Card className="group overflow-hidden border-primary/20 hover:border-primary/50 transition-all duration-300">
-              <div className="h-2 bg-primary w-full" />
-              <CardHeader>
-                <CardTitle className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-2xl font-display uppercase tracking-wide">
-                      {todaysAssignment.workout.name}
-                    </h3>
-                    <p className="text-sm font-normal text-muted-foreground mt-1">
-                      {todaysAssignment.workout.description || "No description provided"}
-                    </p>
-                  </div>
-                  {todaysAssignment.completed ? (
-                    <span className="px-3 py-1 bg-green-500/20 text-green-500 rounded-full text-xs font-bold uppercase tracking-wide border border-green-500/20">
-                      Completed
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 bg-primary/20 text-primary rounded-full text-xs font-bold uppercase tracking-wide border border-primary/20">
-                      Assigned
-                    </span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Link href={`/session/${todaysAssignment.id}`}>
-                  <Button className="w-full mt-2 gap-2 font-semibold">
-                    {todaysAssignment.completed ? "Review Session" : "Start Workout"}
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-                <div className="p-4 bg-secondary rounded-full mb-4">
-                  <Calendar className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <h3 className="font-semibold text-lg">Rest Day</h3>
-                <p className="text-muted-foreground mt-1 mb-4">
-                  No workouts assigned for today.
-                </p>
-                <Link href="/workouts">
-                  <Button variant="outline">Browse Workouts</Button>
-                </Link>
-              </CardContent>
-            </Card>
-          )}
-        </section>
-
-        {/* Quick Actions / Feed */}
-        <section>
-           <h2 className="text-xl font-display font-semibold mb-4">Quick Actions</h2>
-           <div className="grid grid-cols-2 gap-4">
-             <Link href="/workouts">
-                <div className="bg-card p-6 rounded-xl border border-border/50 hover:border-primary/50 hover:bg-secondary/50 transition-all cursor-pointer group">
-                  <div className="p-3 bg-blue-500/10 text-blue-500 rounded-lg w-fit group-hover:scale-110 transition-transform">
-                     <ClipboardList className="w-6 h-6" />
-                  </div>
-                  <h3 className="mt-4 font-semibold group-hover:text-primary transition-colors">Templates</h3>
-                  <p className="text-xs text-muted-foreground mt-1">Manage workout plans</p>
-                </div>
-             </Link>
-             
-             <Link href="/exercises">
-                <div className="bg-card p-6 rounded-xl border border-border/50 hover:border-primary/50 hover:bg-secondary/50 transition-all cursor-pointer group">
-                  <div className="p-3 bg-orange-500/10 text-orange-500 rounded-lg w-fit group-hover:scale-110 transition-transform">
-                     <Dumbbell className="w-6 h-6" />
-                  </div>
-                  <h3 className="mt-4 font-semibold group-hover:text-primary transition-colors">Exercises</h3>
-                  <p className="text-xs text-muted-foreground mt-1">Browse library</p>
-                </div>
-             </Link>
-           </div>
-        </section>
-      </div>
+      {isCoach ? <CoachDashboard /> : isAthlete ? <AthleteDashboard /> : null}
     </Layout>
   );
 }
 
-import { ClipboardList } from "lucide-react";
+function CoachDashboard() {
+  const { data: templates } = useQuery<WorkoutTemplate[]>({
+    queryKey: ["/api/templates"],
+    queryFn: () => apiGet("/api/templates"),
+  });
+
+  const { data: customWorkouts } = useQuery<CustomWorkout[]>({
+    queryKey: ["/api/custom-workouts"],
+    queryFn: () => apiGet("/api/custom-workouts"),
+  });
+
+  const { data: assignmentsList } = useQuery<any[]>({
+    queryKey: ["/api/coach/assignments"],
+    queryFn: () => apiGet("/api/coach/assignments"),
+  });
+
+  const { data: athletes } = useQuery<any[]>({
+    queryKey: ["/api/athletes"],
+    queryFn: () => apiGet("/api/athletes"),
+  });
+
+  const upcomingCount = (assignmentsList || []).filter(a => a.status === "UPCOMING").length;
+  const completedCount = (assignmentsList || []).filter(a => a.status === "COMPLETED").length;
+
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <Card>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-primary/10 rounded-md text-primary">
+              <Trophy className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Templates</p>
+              <p className="text-2xl font-display font-bold" data-testid="stat-templates">{templates?.length || 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-blue-500/10 rounded-md text-blue-500">
+              <ClipboardList className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">My Workouts</p>
+              <p className="text-2xl font-display font-bold" data-testid="stat-workouts">{customWorkouts?.length || 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-orange-500/10 rounded-md text-orange-500">
+              <Send className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Assigned</p>
+              <p className="text-2xl font-display font-bold" data-testid="stat-assigned">{upcomingCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-green-500/10 rounded-md text-green-500">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Athletes</p>
+              <p className="text-2xl font-display font-bold" data-testid="stat-athletes">{athletes?.length || 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Link href="/coach/templates">
+          <Card className="hover-elevate cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <Trophy className="w-8 h-8 mx-auto mb-2 text-primary" />
+              <p className="font-semibold">Browse Templates</p>
+              <p className="text-xs text-muted-foreground mt-1">Find programs</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/coach/workouts">
+          <Card className="hover-elevate cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <ClipboardList className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+              <p className="font-semibold">My Workouts</p>
+              <p className="text-xs text-muted-foreground mt-1">Create & edit</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/coach/assignments">
+          <Card className="hover-elevate cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <Send className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+              <p className="font-semibold">Assign</p>
+              <p className="text-xs text-muted-foreground mt-1">Send to athletes</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/exercises">
+          <Card className="hover-elevate cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <Dumbbell className="w-8 h-8 mx-auto mb-2 text-green-500" />
+              <p className="font-semibold">Exercises</p>
+              <p className="text-xs text-muted-foreground mt-1">Browse library</p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+    </>
+  );
+}
+
+function AthleteDashboard() {
+  const { data: assignmentsList } = useQuery<any[]>({
+    queryKey: ["/api/athlete/workouts"],
+    queryFn: () => apiGet("/api/athlete/workouts"),
+  });
+
+  const upcoming = (assignmentsList || []).filter((a: any) => a.status === "UPCOMING");
+  const completed = (assignmentsList || []).filter((a: any) => a.status === "COMPLETED");
+
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <Card>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-primary/10 rounded-md text-primary">
+              <Calendar className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Upcoming</p>
+              <p className="text-2xl font-display font-bold" data-testid="stat-upcoming">{upcoming.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-green-500/10 rounded-md text-green-500">
+              <Trophy className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Completed</p>
+              <p className="text-2xl font-display font-bold" data-testid="stat-completed">{completed.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6 flex items-center gap-4">
+            <div className="p-3 bg-orange-500/10 rounded-md text-orange-500">
+              <Dumbbell className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Workouts</p>
+              <p className="text-2xl font-display font-bold" data-testid="stat-total">{(assignmentsList || []).length}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {upcoming.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-xl font-display font-semibold">Next Workout</h2>
+          <Card className="border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <h3 className="text-xl font-display font-bold">{upcoming[0].workoutTitle}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {format(new Date(upcoming[0].scheduledDate), "EEEE, MMMM do")}
+                    {" · "}Coach: {upcoming[0].coachName}
+                  </p>
+                </div>
+                <Link href={`/athlete/workouts/${upcoming[0].id}`}>
+                  <Button className="gap-2" data-testid="button-start-next">
+                    Start Workout
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <Link href="/athlete/workouts">
+          <Card className="hover-elevate cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <Calendar className="w-8 h-8 mx-auto mb-2 text-primary" />
+              <p className="font-semibold">My Workouts</p>
+              <p className="text-xs text-muted-foreground mt-1">View all assigned workouts</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/exercises">
+          <Card className="hover-elevate cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <Dumbbell className="w-8 h-8 mx-auto mb-2 text-green-500" />
+              <p className="font-semibold">Exercises</p>
+              <p className="text-xs text-muted-foreground mt-1">Browse exercise library</p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+    </>
+  );
+}

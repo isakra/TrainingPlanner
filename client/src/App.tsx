@@ -6,17 +6,19 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
+import RoleSelectPage from "@/pages/RoleSelectPage";
 import Dashboard from "@/pages/Dashboard";
 import ExercisesPage from "@/pages/ExercisesPage";
-import WorkoutsPage from "@/pages/WorkoutsPage";
-import WorkoutDetailPage from "@/pages/WorkoutDetailPage";
-import TrainingPage from "@/pages/TrainingPage";
-import SessionPage from "@/pages/SessionPage";
-import PerformancePage from "@/pages/PerformancePage";
+import CoachTemplatesPage from "@/pages/CoachTemplatesPage";
+import CoachWorkoutsPage from "@/pages/CoachWorkoutsPage";
+import CoachWorkoutEditPage from "@/pages/CoachWorkoutEditPage";
+import CoachAssignmentsPage from "@/pages/CoachAssignmentsPage";
+import AthleteWorkoutsPage from "@/pages/AthleteWorkoutsPage";
+import AthleteWorkoutSessionPage from "@/pages/AthleteWorkoutSessionPage";
 import { Loader2 } from "lucide-react";
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
-  const { user, isLoading } = useAuth();
+function ProtectedRoute({ component: Component, requiredRole }: { component: React.ComponentType; requiredRole?: "COACH" | "ATHLETE" }) {
+  const { user, isLoading, hasRole, isCoach, isAthlete } = useAuth();
 
   if (isLoading) {
     return (
@@ -30,6 +32,18 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
     return <AuthPage />;
   }
 
+  if (!hasRole) {
+    return <RoleSelectPage />;
+  }
+
+  if (requiredRole === "COACH" && !isCoach) {
+    return <NotFound />;
+  }
+
+  if (requiredRole === "ATHLETE" && !isAthlete) {
+    return <NotFound />;
+  }
+
   return <Component />;
 }
 
@@ -40,13 +54,16 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       
       <Route path="/exercises" component={() => <ProtectedRoute component={ExercisesPage} />} />
-      <Route path="/workouts" component={() => <ProtectedRoute component={WorkoutsPage} />} />
-      <Route path="/workouts/:id" component={() => <ProtectedRoute component={WorkoutDetailPage} />} />
       
-      <Route path="/training" component={() => <ProtectedRoute component={TrainingPage} />} />
-      <Route path="/session/:id" component={() => <ProtectedRoute component={SessionPage} />} />
+      {/* Coach Routes */}
+      <Route path="/coach/templates" component={() => <ProtectedRoute component={CoachTemplatesPage} requiredRole="COACH" />} />
+      <Route path="/coach/workouts" component={() => <ProtectedRoute component={CoachWorkoutsPage} requiredRole="COACH" />} />
+      <Route path="/coach/workouts/:id" component={() => <ProtectedRoute component={CoachWorkoutEditPage} requiredRole="COACH" />} />
+      <Route path="/coach/assignments" component={() => <ProtectedRoute component={CoachAssignmentsPage} requiredRole="COACH" />} />
       
-      <Route path="/performance" component={() => <ProtectedRoute component={PerformancePage} />} />
+      {/* Athlete Routes */}
+      <Route path="/athlete/workouts" component={() => <ProtectedRoute component={AthleteWorkoutsPage} requiredRole="ATHLETE" />} />
+      <Route path="/athlete/workouts/:assignmentId" component={() => <ProtectedRoute component={AthleteWorkoutSessionPage} requiredRole="ATHLETE" />} />
 
       <Route component={NotFound} />
     </Switch>
