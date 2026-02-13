@@ -13,8 +13,10 @@ import CoachTemplatesPage from "@/pages/CoachTemplatesPage";
 import CoachWorkoutsPage from "@/pages/CoachWorkoutsPage";
 import CoachWorkoutEditPage from "@/pages/CoachWorkoutEditPage";
 import CoachAssignmentsPage from "@/pages/CoachAssignmentsPage";
+import CoachAthletesPage from "@/pages/CoachAthletesPage";
 import AthleteWorkoutsPage from "@/pages/AthleteWorkoutsPage";
 import AthleteWorkoutSessionPage from "@/pages/AthleteWorkoutSessionPage";
+import MessagesPage from "@/pages/MessagesPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ component: Component, requiredRole }: { component: React.ComponentType; requiredRole?: "COACH" | "ATHLETE" }) {
@@ -59,11 +61,15 @@ function Router() {
       <Route path="/coach/templates" component={() => <ProtectedRoute component={CoachTemplatesPage} requiredRole="COACH" />} />
       <Route path="/coach/workouts" component={() => <ProtectedRoute component={CoachWorkoutsPage} requiredRole="COACH" />} />
       <Route path="/coach/workouts/:id" component={() => <ProtectedRoute component={CoachWorkoutEditPage} requiredRole="COACH" />} />
+      <Route path="/coach/athletes" component={() => <ProtectedRoute component={CoachAthletesPage} requiredRole="COACH" />} />
       <Route path="/coach/assignments" component={() => <ProtectedRoute component={CoachAssignmentsPage} requiredRole="COACH" />} />
       
       {/* Athlete Routes */}
       <Route path="/athlete/workouts" component={() => <ProtectedRoute component={AthleteWorkoutsPage} requiredRole="ATHLETE" />} />
       <Route path="/athlete/workouts/:assignmentId" component={() => <ProtectedRoute component={AthleteWorkoutSessionPage} requiredRole="ATHLETE" />} />
+
+      {/* Shared Routes */}
+      <Route path="/messages" component={() => <ProtectedRoute component={MessagesPage} />} />
 
       <Route component={NotFound} />
     </Switch>

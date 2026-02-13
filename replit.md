@@ -34,7 +34,7 @@ Path aliases are configured:
 - `@shared/*` → `shared/*`
 - `@assets/*` → `attached_assets/*`
 
-Pages include: Dashboard, Exercises Library, Workouts (templates), Workout Detail, Training (assigned sessions), Session (active workout logging), Performance (analytics charts), and Auth.
+Pages include: Dashboard, Exercises Library, Workouts (templates), Workout Detail, Training (assigned sessions), Session (active workout logging), Performance (analytics charts), Auth, Coach Athletes (manage connections), and Messages (in-app messaging).
 
 All pages except Auth are protected routes that require authentication.
 
@@ -46,6 +46,9 @@ All pages except Auth are protected routes that require authentication.
 - **Route Contract**: A shared `shared/routes.ts` file defines the API contract with Zod schemas for input validation and response typing, used by both client and server
 
 Key API endpoints:
+- `GET/POST /api/coach/athletes`, `POST /api/coach/athletes/connect`, `DELETE /api/coach/athletes/:athleteId` — Coach-athlete connections
+- `GET /api/athlete/coaches` — Athlete's connected coaches
+- `GET/POST /api/messages/conversations`, `GET/POST /api/messages/conversations/:id/messages` — Messaging system
 - `GET/POST /api/exercises` — Exercise library CRUD
 - `GET/POST /api/workouts` — Workout template CRUD
 - `GET /api/workouts/:id` — Workout detail with exercises
@@ -69,6 +72,10 @@ Database tables:
 - `workout_exercises` — Junction table linking exercises to workouts with sets/reps/order
 - `assignments` — Assigns a workout to a user on a specific date, tracks completion
 - `performance_logs` — Actual performance data logged by athletes (exercise, weight, reps, date)
+- `coach_athletes` — Join table for coach-athlete relationships (coachId + athleteId, unique constraint)
+- `conversations` — Chat conversations (isGroup, title, lastMessageAt)
+- `conversation_participants` — Maps users to conversations (unique per user per conversation)
+- `messages` — Individual messages in conversations (senderId, content, createdAt)
 
 ### Build Process
 - **Development**: `tsx server/index.ts` runs the Express server with Vite middleware for HMR

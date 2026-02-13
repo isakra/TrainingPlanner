@@ -64,7 +64,8 @@ export async function registerRoutes(
   app.get(api.athletes.list.path, async (req, res) => {
     const userId = await requireRole(req, res, "COACH");
     if (!userId) return;
-    const athletes = await storage.getAthletes();
+    const connections = await storage.getCoachAthletesByCoach(userId);
+    const athletes = connections.map(c => c.athlete);
     res.json(athletes);
   });
 
@@ -239,6 +240,12 @@ export async function registerRoutes(
     if (!userId) return;
     try {
       const input = api.coachAssignments.create.input.parse(req.body);
+
+      for (const athleteId of input.athleteIds) {
+        const isPair = await storage.isCoachAthletePair(userId, athleteId);
+        if (!isPair) return res.status(403).json({ message: "You can only assign workouts to connected athletes" });
+      }
+
       const result = await storage.createAssignments({
         coachId: userId,
         athleteIds: input.athleteIds,
@@ -259,6 +266,118 @@ export async function registerRoutes(
     const log = await storage.getWorkoutLog(Number(req.params.assignmentId));
     if (!log) return res.json(null);
     res.json(log);
+  });
+
+  // === COACH ↔ ATHLETE CONNECTIONS ===
+
+  app.get(api.coachAthleteConnections.list.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const connections = await storage.getCoachAthletesByCoach(userId);
+    res.json(connections);
+  });
+
+  app.post(api.coachAthleteConnections.connect.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    try {
+      const { athleteEmail } = api.coachAthleteConnections.connect.input.parse(req.body);
+      const athlete = await storage.getUserByEmail(athleteEmail);
+      if (!athlete) return res.status(404).json({ message: "No user found with that email" });
+      if (athlete.role !== "ATHLETE") return res.status(400).json({ message: "That user is not an athlete" });
+      const existing = await storage.isCoachAthletePair(userId, athlete.id);
+      if (existing) return res.status(409).json({ message: "Already connected to this athlete" });
+      const connection = await storage.connectCoachAthlete(userId, athlete.id);
+      res.status(201).json(connection);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete(api.coachAthleteConnections.disconnect.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const athleteId = req.params.athleteId;
+    const isPair = await storage.isCoachAthletePair(userId, athleteId);
+    if (!isPair) return res.status(404).json({ message: "Connection not found" });
+    await storage.disconnectCoachAthlete(userId, athleteId);
+    res.json({ message: "Disconnected" });
+  });
+
+  // === MESSAGING ===
+
+  app.get(api.messaging.conversations.list.path, async (req, res) => {
+    const userId = requireAuth(req, res);
+    if (!userId) return;
+    const convs = await storage.getConversationsForUser(userId);
+    res.json(convs);
+  });
+
+  app.post(api.messaging.conversations.create.path, async (req, res) => {
+    const userId = requireAuth(req, res);
+    if (!userId) return;
+    try {
+      const input = api.messaging.conversations.create.input.parse(req.body);
+      const user = await storage.getUserById(userId);
+      if (!user) return res.status(401).json({ message: "User not found" });
+      if (!user.role || (user.role !== "COACH" && user.role !== "ATHLETE")) {
+        return res.status(403).json({ message: "You must select a role before messaging" });
+      }
+
+      for (const pId of input.participantIds) {
+        if (pId === userId) continue;
+        if (user.role === "COACH") {
+          const isPair = await storage.isCoachAthletePair(userId, pId);
+          if (!isPair) return res.status(403).json({ message: "You can only message connected athletes" });
+        } else {
+          const isPair = await storage.isCoachAthletePair(pId, userId);
+          if (!isPair) return res.status(403).json({ message: "You can only message connected coaches" });
+        }
+      }
+
+      const isGroup = input.isGroup || input.participantIds.length > 1;
+      const conv = await storage.createConversation(userId, input.participantIds, isGroup, input.title);
+      res.status(201).json(conv);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get(api.messaging.conversations.messages.path, async (req, res) => {
+    const userId = requireAuth(req, res);
+    if (!userId) return;
+    const conversationId = Number(req.params.id);
+    const isMember = await storage.isUserInConversation(userId, conversationId);
+    if (!isMember) return res.status(403).json({ message: "Not a member of this conversation" });
+    const msgs = await storage.getConversationMessages(conversationId);
+    res.json(msgs);
+  });
+
+  app.post(api.messaging.conversations.send.path, async (req, res) => {
+    const userId = requireAuth(req, res);
+    if (!userId) return;
+    try {
+      const conversationId = Number(req.params.id);
+      const isMember = await storage.isUserInConversation(userId, conversationId);
+      if (!isMember) return res.status(403).json({ message: "Not a member of this conversation" });
+      const { content } = api.messaging.conversations.send.input.parse(req.body);
+      const msg = await storage.sendMessage(conversationId, userId, content);
+      res.status(201).json(msg);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // === ATHLETE COACHES ===
+
+  app.get(api.athleteCoaches.list.path, async (req, res) => {
+    const userId = await requireRole(req, res, "ATHLETE");
+    if (!userId) return;
+    const connections = await storage.getCoachAthletesByAthlete(userId);
+    res.json(connections.map(c => c.coach));
   });
 
   // === ATHLETE WORKOUTS ===

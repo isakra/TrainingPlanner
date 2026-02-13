@@ -186,6 +186,59 @@ export const api = {
     path: '/api/coach/assignments/:assignmentId/log' as const,
   },
 
+  // Athlete's connected coaches
+  athleteCoaches: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/athlete/coaches' as const,
+    },
+  },
+
+  // Coach ↔ Athlete Connections
+  coachAthleteConnections: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/coach/athletes' as const,
+    },
+    connect: {
+      method: 'POST' as const,
+      path: '/api/coach/athletes/connect' as const,
+      input: z.object({ athleteEmail: z.string().email() }),
+    },
+    disconnect: {
+      method: 'DELETE' as const,
+      path: '/api/coach/athletes/:athleteId' as const,
+    },
+  },
+
+  // Messaging
+  messaging: {
+    conversations: {
+      list: {
+        method: 'GET' as const,
+        path: '/api/messages/conversations' as const,
+      },
+      create: {
+        method: 'POST' as const,
+        path: '/api/messages/conversations' as const,
+        input: z.object({
+          participantIds: z.array(z.string()).min(1),
+          isGroup: z.boolean().optional(),
+          title: z.string().optional(),
+        }),
+      },
+      messages: {
+        method: 'GET' as const,
+        path: '/api/messages/conversations/:id/messages' as const,
+      },
+      send: {
+        method: 'POST' as const,
+        path: '/api/messages/conversations/:id/messages' as const,
+        input: z.object({ content: z.string().min(1) }),
+      },
+    },
+  },
+
   // Legacy
   workouts: {
     list: { method: 'GET' as const, path: '/api/workouts' as const },

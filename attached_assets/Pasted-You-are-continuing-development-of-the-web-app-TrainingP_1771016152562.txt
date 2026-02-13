@@ -1,0 +1,264 @@
+You are continuing development of the web app **TrainingPlanner**.
+
+Your task is to implement TWO major systems:
+
+1) A secure Coach ↔ Athlete connection system
+2) A full in-app messaging system (like TeamBuildr chat)
+
+Both systems must be production-ready, secure, and follow the existing stack.
+
+==================================================
+PART 1 — COACH ↔ ATHLETE CONNECTION SECURITY
+==================================================
+
+GOAL
+- Coaches can ONLY see/manage their own athletes.
+- Coaches can ONLY assign workouts to connected athletes.
+- Coaches can ONLY view logs/assignments of connected athletes.
+- Athletes can ONLY see their own data.
+
+--------------------------------
+DATABASE DESIGN (REQUIRED)
+--------------------------------
+
+Add join table:
+
+Model: CoachAthlete
+Fields:
+- id (cuid)
+- coachId (FK → User.id)
+- athleteId (FK → User.id)
+- createdAt (DateTime default now)
+
+Constraints:
+- UNIQUE (coachId, athleteId)
+- coachId must belong to role COACH
+- athleteId must belong to role ATHLETE
+- Cascade delete on user removal
+
+This table is the SINGLE source of truth for relationships.
+
+--------------------------------
+PRISMA RELATIONS
+--------------------------------
+
+Update User model with:
+
+- coachedAthletes   CoachAthlete[] @relation("CoachAthletes")
+- coaches           CoachAthlete[] @relation("AthleteCoaches")
+
+Ensure WorkoutAssignment contains:
+- coachId
+- athleteId
+
+Assignments must always match a valid CoachAthlete row.
+
+--------------------------------
+SECURITY ENFORCEMENT (MANDATORY)
+--------------------------------
+
+For ANY coach route touching athletes/assignments/logs:
+
+1) Require authenticated session
+2) Require role = COACH
+3) Verify CoachAthlete exists:
+   WHERE coachId = session.user.id
+   AND athleteId = requested athleteId
+
+If not → return 403.
+
+For athlete routes:
+
+1) Require authenticated session
+2) Require role = ATHLETE
+3) Only allow access where:
+   assignment.athleteId = session.user.id
+
+Else → 403.
+
+--------------------------------
+FEATURES TO BUILD
+--------------------------------
+
+POST /api/coach/athletes/connect
+- Input: athleteEmail
+- Must exist AND be ATHLETE
+- Create CoachAthlete row
+- Prevent duplicates
+Errors:
+- 404 not found
+- 400 wrong role
+- 409 already connected
+
+GET /api/coach/athletes
+- Return all athletes connected to coach
+- Sorted by name
+
+Assignment creation:
+- MUST verify every athleteId belongs to coach
+- If any fail → 403 reject entire request
+
+Coach viewing logs:
+- Only assignments where assignment.coachId = session.user.id
+
+--------------------------------
+UI PAGE
+--------------------------------
+
+/coach/athletes
+- List athletes
+- Connect by email form
+- Proper loading + error states
+
+==================================================
+PART 2 — IN-APP MESSAGING SYSTEM
+==================================================
+
+GOAL
+Create a **two-way messenger tab** where:
+
+- Coaches can message:
+  - One athlete (direct chat)
+  - Multiple athletes (group chat)
+- Athletes can reply in the same conversation.
+- Athletes can also start conversations with their coach.
+- Messaging ONLY allowed between connected coach–athlete relationships.
+- No cross-coach messaging allowed.
+
+--------------------------------
+DATABASE MODELS (REQUIRED)
+--------------------------------
+
+Conversation
+- id (cuid)
+- createdAt
+- isGroup (boolean)
+- title (nullable, for group name)
+
+ConversationParticipant
+- id (cuid)
+- conversationId (FK)
+- userId (FK)
+- roleAtJoin (COACH or ATHLETE)
+- joinedAt
+
+UNIQUE:
+- (conversationId, userId)
+
+Message
+- id (cuid)
+- conversationId (FK)
+- senderId (FK → User)
+- content (text)
+- createdAt
+- readAt (nullable, per-user handled in future)
+
+--------------------------------
+SECURITY RULES (CRITICAL)
+--------------------------------
+
+User can access a conversation ONLY if:
+
+ConversationParticipant.userId = session.user.id
+
+Otherwise → 403.
+
+When creating a conversation:
+
+- Coach can include ONLY athletes connected via CoachAthlete.
+- Athlete can include ONLY:
+  - their coach
+  - conversations where coach is connected.
+
+Reject invalid participants → 403.
+
+--------------------------------
+REQUIRED APIs
+--------------------------------
+
+POST /api/messages/conversations
+- Create direct or group conversation
+- Validate relationships
+
+GET /api/messages/conversations
+- Return all conversations for logged-in user
+- Include last message + participants
+
+GET /api/messages/conversations/:id/messages
+- Paginated messages
+- Verify user is participant
+
+POST /api/messages/conversations/:id/messages
+- Send message
+- Verify participant
+- Save message
+
+--------------------------------
+UI REQUIREMENTS
+--------------------------------
+
+Add new navigation tab:
+
+/messages
+
+Layout:
+- Left sidebar:
+  - conversation list
+  - last message preview
+- Main panel:
+  - message history
+  - input box
+  - send button
+
+Features:
+- Direct + group chats
+- Real-time NOT required (simple polling is fine for MVP)
+- Clean Tailwind UI
+- Mobile responsive
+
+Coach and Athlete share SAME messenger UI.
+
+--------------------------------
+CODE QUALITY RULES
+--------------------------------
+
+- TypeScript everywhere
+- Zod validation on all inputs
+- Central helpers:
+
+  assertCoachOwnsAthlete()
+  assertUserInConversation()
+
+- Service layer:
+
+  messaging.service.ts
+  coachAthlete.service.ts
+
+- Proper HTTP errors
+
+--------------------------------
+DELIVERABLE
+--------------------------------
+
+After completion:
+
+✔ Coach ↔ Athlete system secure  
+✔ Messaging works both directions  
+✔ Direct + group chats functional  
+✔ No unauthorized data access possible  
+✔ TrainingPlanner still runs with one command  
+
+--------------------------------
+START IMPLEMENTATION
+--------------------------------
+
+1) Update Prisma schema (CoachAthlete + Messaging models)
+2) Run migration
+3) Build secure APIs
+4) Build /coach/athletes page
+5) Build /messages UI
+6) Verify permissions everywhere
+
+Do NOT skip security.
+Do NOT change the TrainingPlanner stack.
+Continue until fully working.

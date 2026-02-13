@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 export * from "./models/auth";
@@ -155,6 +155,44 @@ export const performanceLogs = pgTable("performance_logs", {
   notes: text("notes"),
 });
 
+// === COACH ↔ ATHLETE CONNECTIONS ===
+
+export const coachAthletes = pgTable("coach_athletes", {
+  id: serial("id").primaryKey(),
+  coachId: text("coach_id").notNull(),
+  athleteId: text("athlete_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("coach_athlete_unique").on(table.coachId, table.athleteId),
+]);
+
+// === MESSAGING ===
+
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  isGroup: boolean("is_group").notNull().default(false),
+  title: text("title"),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastMessageAt: timestamp("last_message_at"),
+});
+
+export const conversationParticipants = pgTable("conversation_participants", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull(),
+  userId: text("user_id").notNull(),
+  joinedAt: timestamp("joined_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("conversation_participant_unique").on(table.conversationId, table.userId),
+]);
+
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull(),
+  senderId: text("sender_id").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === PRESCRIPTION JSON SCHEMA ===
 
 export const prescriptionSchema = z.object({
@@ -183,6 +221,11 @@ export const insertCustomExerciseSchema = createInsertSchema(customExercises).om
 export const insertWorkoutAssignmentSchema = createInsertSchema(workoutAssignments).omit({ id: true, createdAt: true, status: true });
 export const insertWorkoutLogSchema = createInsertSchema(workoutLogs).omit({ id: true });
 export const insertSetLogSchema = createInsertSchema(setLogs).omit({ id: true });
+
+export const insertCoachAthleteSchema = createInsertSchema(coachAthletes).omit({ id: true, createdAt: true });
+export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, lastMessageAt: true });
+export const insertConversationParticipantSchema = createInsertSchema(conversationParticipants).omit({ id: true, joinedAt: true });
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 
 export const insertWorkoutSchema = createInsertSchema(workouts).omit({ id: true });
 export const insertWorkoutExerciseSchema = createInsertSchema(workoutExercises).omit({ id: true });
@@ -220,6 +263,18 @@ export type InsertWorkoutLog = z.infer<typeof insertWorkoutLogSchema>;
 
 export type SetLog = typeof setLogs.$inferSelect;
 export type InsertSetLog = z.infer<typeof insertSetLogSchema>;
+
+export type CoachAthlete = typeof coachAthletes.$inferSelect;
+export type InsertCoachAthlete = z.infer<typeof insertCoachAthleteSchema>;
+
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+
+export type ConversationParticipant = typeof conversationParticipants.$inferSelect;
+export type InsertConversationParticipant = z.infer<typeof insertConversationParticipantSchema>;
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 export type Workout = typeof workouts.$inferSelect;
 export type InsertWorkout = z.infer<typeof insertWorkoutSchema>;

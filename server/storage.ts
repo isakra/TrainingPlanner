@@ -4,6 +4,7 @@ import {
   workoutTemplates, templateBlocks, templateExercises,
   customWorkouts, customBlocks, customExercises,
   workoutAssignments, workoutLogs, setLogs,
+  coachAthletes, conversations, conversationParticipants, messages,
   users,
   type Exercise, type InsertExercise,
   type Workout, type InsertWorkout,
@@ -20,9 +21,10 @@ import {
   type WorkoutAssignment, type InsertWorkoutAssignment,
   type WorkoutLog, type InsertWorkoutLog, type WorkoutLogWithSets,
   type SetLog, type InsertSetLog,
+  type CoachAthlete, type Conversation, type ConversationParticipant, type Message,
   type User,
 } from "@shared/schema";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -66,6 +68,22 @@ export interface IStorage {
   getWorkoutLog(assignmentId: number): Promise<WorkoutLogWithSets | undefined>;
   upsertWorkoutLog(data: { assignmentId: number; athleteId: string; overallNotes?: string; completedAt?: Date; avgHeartRate?: number | null; maxHeartRate?: number | null; minHeartRate?: number | null; deviceName?: string | null }): Promise<WorkoutLog>;
   upsertSetLogs(logId: number, sets: InsertSetLog[]): Promise<SetLog[]>;
+
+  // Coach ↔ Athlete Connections
+  getCoachAthletesByCoach(coachId: string): Promise<(CoachAthlete & { athlete: User })[]>;
+  getCoachAthletesByAthlete(athleteId: string): Promise<(CoachAthlete & { coach: User })[]>;
+  isCoachAthletePair(coachId: string, athleteId: string): Promise<boolean>;
+  connectCoachAthlete(coachId: string, athleteId: string): Promise<CoachAthlete>;
+  disconnectCoachAthlete(coachId: string, athleteId: string): Promise<void>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+
+  // Messaging
+  createConversation(creatorId: string, participantIds: string[], isGroup: boolean, title?: string): Promise<Conversation>;
+  getConversationsForUser(userId: string): Promise<any[]>;
+  getConversationMessages(conversationId: number, limit?: number, offset?: number): Promise<(Message & { sender: { id: string; firstName: string | null; lastName: string | null } })[]>;
+  sendMessage(conversationId: number, senderId: string, content: string): Promise<Message>;
+  isUserInConversation(userId: string, conversationId: number): Promise<boolean>;
+  getConversationParticipants(conversationId: number): Promise<(ConversationParticipant & { user: User })[]>;
 
   // Legacy (keep for backward compat)
   getWorkouts(): Promise<Workout[]>;
@@ -371,6 +389,168 @@ export class DatabaseStorage implements IStorage {
     await db.delete(setLogs).where(eq(setLogs.logId, logId));
     if (sets.length === 0) return [];
     const result = await db.insert(setLogs).values(sets.map(s => ({ ...s, logId }))).returning();
+    return result;
+  }
+
+  // === COACH ↔ ATHLETE CONNECTIONS ===
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return user;
+  }
+
+  async getCoachAthletesByCoach(coachId: string): Promise<(CoachAthlete & { athlete: User })[]> {
+    const rows = await db.select().from(coachAthletes).where(eq(coachAthletes.coachId, coachId));
+    const result = [];
+    for (const row of rows) {
+      const [athlete] = await db.select().from(users).where(eq(users.id, row.athleteId)).limit(1);
+      if (athlete) result.push({ ...row, athlete });
+    }
+    result.sort((a, b) => {
+      const nameA = `${a.athlete.firstName || ''} ${a.athlete.lastName || ''}`.trim().toLowerCase();
+      const nameB = `${b.athlete.firstName || ''} ${b.athlete.lastName || ''}`.trim().toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+    return result;
+  }
+
+  async getCoachAthletesByAthlete(athleteId: string): Promise<(CoachAthlete & { coach: User })[]> {
+    const rows = await db.select().from(coachAthletes).where(eq(coachAthletes.athleteId, athleteId));
+    const result = [];
+    for (const row of rows) {
+      const [coach] = await db.select().from(users).where(eq(users.id, row.coachId)).limit(1);
+      if (coach) result.push({ ...row, coach });
+    }
+    return result;
+  }
+
+  async isCoachAthletePair(coachId: string, athleteId: string): Promise<boolean> {
+    const [row] = await db.select().from(coachAthletes)
+      .where(and(eq(coachAthletes.coachId, coachId), eq(coachAthletes.athleteId, athleteId)))
+      .limit(1);
+    return !!row;
+  }
+
+  async connectCoachAthlete(coachId: string, athleteId: string): Promise<CoachAthlete> {
+    const [row] = await db.insert(coachAthletes).values({ coachId, athleteId }).returning();
+    return row;
+  }
+
+  async disconnectCoachAthlete(coachId: string, athleteId: string): Promise<void> {
+    await db.delete(coachAthletes)
+      .where(and(eq(coachAthletes.coachId, coachId), eq(coachAthletes.athleteId, athleteId)));
+  }
+
+  // === MESSAGING ===
+
+  async createConversation(creatorId: string, participantIds: string[], isGroup: boolean, title?: string): Promise<Conversation> {
+    const allParticipants = [creatorId, ...participantIds.filter(id => id !== creatorId)];
+    const [conv] = await db.insert(conversations).values({
+      isGroup,
+      title: title || null,
+    }).returning();
+
+    for (const userId of allParticipants) {
+      await db.insert(conversationParticipants).values({
+        conversationId: conv.id,
+        userId,
+      });
+    }
+
+    return conv;
+  }
+
+  async getConversationsForUser(userId: string): Promise<any[]> {
+    const participantRows = await db.select().from(conversationParticipants)
+      .where(eq(conversationParticipants.userId, userId));
+
+    if (participantRows.length === 0) return [];
+
+    const convIds = participantRows.map(p => p.conversationId);
+    const convs = await db.select().from(conversations)
+      .where(inArray(conversations.id, convIds))
+      .orderBy(desc(conversations.lastMessageAt));
+
+    const result = [];
+    for (const conv of convs) {
+      const participants = await db.select().from(conversationParticipants)
+        .where(eq(conversationParticipants.conversationId, conv.id));
+
+      const participantUsers = [];
+      for (const p of participants) {
+        const [u] = await db.select().from(users).where(eq(users.id, p.userId)).limit(1);
+        if (u) participantUsers.push({ id: u.id, firstName: u.firstName, lastName: u.lastName, role: u.role, profileImageUrl: u.profileImageUrl });
+      }
+
+      const [lastMessage] = await db.select().from(messages)
+        .where(eq(messages.conversationId, conv.id))
+        .orderBy(desc(messages.createdAt))
+        .limit(1);
+
+      result.push({
+        ...conv,
+        participants: participantUsers,
+        lastMessage: lastMessage || null,
+      });
+    }
+
+    return result;
+  }
+
+  async getConversationMessages(conversationId: number, limit = 100, offset = 0): Promise<(Message & { sender: { id: string; firstName: string | null; lastName: string | null } })[]> {
+    const msgs = await db.select().from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(asc(messages.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const result = [];
+    for (const msg of msgs) {
+      const [sender] = await db.select().from(users).where(eq(users.id, msg.senderId)).limit(1);
+      result.push({
+        ...msg,
+        sender: sender
+          ? { id: sender.id, firstName: sender.firstName, lastName: sender.lastName }
+          : { id: msg.senderId, firstName: null, lastName: null },
+      });
+    }
+
+    return result;
+  }
+
+  async sendMessage(conversationId: number, senderId: string, content: string): Promise<Message> {
+    const [msg] = await db.insert(messages).values({
+      conversationId,
+      senderId,
+      content,
+    }).returning();
+
+    await db.update(conversations)
+      .set({ lastMessageAt: new Date() })
+      .where(eq(conversations.id, conversationId));
+
+    return msg;
+  }
+
+  async isUserInConversation(userId: string, conversationId: number): Promise<boolean> {
+    const [row] = await db.select().from(conversationParticipants)
+      .where(and(
+        eq(conversationParticipants.conversationId, conversationId),
+        eq(conversationParticipants.userId, userId),
+      ))
+      .limit(1);
+    return !!row;
+  }
+
+  async getConversationParticipants(conversationId: number): Promise<(ConversationParticipant & { user: User })[]> {
+    const rows = await db.select().from(conversationParticipants)
+      .where(eq(conversationParticipants.conversationId, conversationId));
+
+    const result = [];
+    for (const row of rows) {
+      const [user] = await db.select().from(users).where(eq(users.id, row.userId)).limit(1);
+      if (user) result.push({ ...row, user });
+    }
     return result;
   }
 

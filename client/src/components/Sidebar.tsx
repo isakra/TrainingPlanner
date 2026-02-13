@@ -10,6 +10,7 @@ import {
   Trophy,
   Users,
   Send,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,13 +24,16 @@ export function Sidebar() {
     { label: "Dashboard", icon: LayoutDashboard, href: "/" },
     { label: "Templates", icon: Trophy, href: "/coach/templates" },
     { label: "My Workouts", icon: ClipboardList, href: "/coach/workouts" },
+    { label: "My Athletes", icon: Users, href: "/coach/athletes" },
     { label: "Assignments", icon: Send, href: "/coach/assignments" },
+    { label: "Messages", icon: MessageSquare, href: "/messages" },
     { label: "Exercises", icon: Dumbbell, href: "/exercises" },
   ];
 
   const athleteItems = [
     { label: "Dashboard", icon: LayoutDashboard, href: "/" },
     { label: "My Workouts", icon: Calendar, href: "/athlete/workouts" },
+    { label: "Messages", icon: MessageSquare, href: "/messages" },
     { label: "Exercises", icon: Dumbbell, href: "/exercises" },
   ];
 
