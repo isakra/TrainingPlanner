@@ -408,6 +408,24 @@ async function seedDatabase() {
       }
     }
     console.log(`Database seeded with ${exerciseData.length} exercises!`);
+  } else {
+    const needsVideoUpdate = existing.filter(e => !e.videoUrl);
+    if (needsVideoUpdate.length > 0) {
+      console.log(`Backfilling videoUrl for ${needsVideoUpdate.length} exercises...`);
+      const exerciseDataMap = new Map(exerciseData.map(e => [e.name.toLowerCase(), e]));
+      let updated = 0;
+      for (const ex of needsVideoUpdate) {
+        const data = exerciseDataMap.get(ex.name.toLowerCase());
+        if (data?.videoUrl) {
+          await storage.updateExercise(ex.id, {
+            videoUrl: data.videoUrl,
+            instructions: data.instructions || ex.instructions,
+          });
+          updated++;
+        }
+      }
+      console.log(`Updated ${updated} exercises with videoUrl!`);
+    }
   }
 
   // Seed workout templates from premade data
