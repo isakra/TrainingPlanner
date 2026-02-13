@@ -11,12 +11,14 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, MessageSquarePlus, Send, ArrowLeft, Users } from "lucide-react";
+import { Loader2, MessageSquarePlus, Send, ArrowLeft, Users, UsersRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiPost } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { useSearch } from "wouter";
+import type { GroupWithMemberCount } from "@shared/schema";
 
 type Participant = {
   id: string;

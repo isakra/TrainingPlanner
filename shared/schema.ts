@@ -193,6 +193,25 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === GROUPS (TEAMS/SQUADS) ===
+
+export const groups = pgTable("groups", {
+  id: serial("id").primaryKey(),
+  coachId: text("coach_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const groupMembers = pgTable("group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull(),
+  athleteId: text("athlete_id").notNull(),
+  addedAt: timestamp("added_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("group_member_unique").on(table.groupId, table.athleteId),
+]);
+
 // === PRESCRIPTION JSON SCHEMA ===
 
 export const prescriptionSchema = z.object({
@@ -226,6 +245,9 @@ export const insertCoachAthleteSchema = createInsertSchema(coachAthletes).omit({
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, lastMessageAt: true });
 export const insertConversationParticipantSchema = createInsertSchema(conversationParticipants).omit({ id: true, joinedAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
+
+export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });
+export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true, addedAt: true });
 
 export const insertWorkoutSchema = createInsertSchema(workouts).omit({ id: true });
 export const insertWorkoutExerciseSchema = createInsertSchema(workoutExercises).omit({ id: true });
@@ -275,6 +297,15 @@ export type InsertConversationParticipant = z.infer<typeof insertConversationPar
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+export type Group = typeof groups.$inferSelect;
+export type InsertGroup = z.infer<typeof insertGroupSchema>;
+
+export type GroupMember = typeof groupMembers.$inferSelect;
+export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
+
+export type GroupWithMemberCount = Group & { memberCount: number };
+export type GroupWithMembers = Group & { members: (GroupMember & { athlete: User })[] };
 
 export type Workout = typeof workouts.$inferSelect;
 export type InsertWorkout = z.infer<typeof insertWorkoutSchema>;

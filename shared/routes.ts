@@ -135,11 +135,15 @@ export const api = {
       method: 'POST' as const,
       path: '/api/coach/assignments' as const,
       input: z.object({
-        athleteIds: z.array(z.string()).min(1),
+        athleteIds: z.array(z.string()).optional(),
+        groupId: z.number().optional(),
         sourceType: z.enum(["TEMPLATE", "CUSTOM"]),
         sourceId: z.number(),
         scheduledDate: z.string(),
-      }),
+      }).refine(
+        data => (data.athleteIds && data.athleteIds.length > 0) || data.groupId,
+        { message: "Either athleteIds or groupId must be provided" }
+      ),
     },
   },
   athleteAssignments: {
@@ -194,6 +198,55 @@ export const api = {
     },
   },
 
+  // Groups (Teams/Squads)
+  coachGroups: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/coach/groups' as const,
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/coach/groups' as const,
+      input: z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+      }),
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/coach/groups/:id' as const,
+    },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/coach/groups/:id' as const,
+      input: z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+      }),
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/coach/groups/:id' as const,
+    },
+    addMember: {
+      method: 'POST' as const,
+      path: '/api/coach/groups/:id/members' as const,
+      input: z.object({
+        athleteId: z.string().min(1),
+      }),
+    },
+    removeMember: {
+      method: 'DELETE' as const,
+      path: '/api/coach/groups/:id/members/:athleteId' as const,
+    },
+  },
+  athleteGroups: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/athlete/groups' as const,
+    },
+  },
+
   // Coach ↔ Athlete Connections
   coachAthleteConnections: {
     list: {
@@ -222,9 +275,10 @@ export const api = {
         method: 'POST' as const,
         path: '/api/messages/conversations' as const,
         input: z.object({
-          participantIds: z.array(z.string()).min(1),
+          participantIds: z.array(z.string()).optional(),
           isGroup: z.boolean().optional(),
           title: z.string().optional(),
+          groupId: z.number().optional(),
         }),
       },
       messages: {

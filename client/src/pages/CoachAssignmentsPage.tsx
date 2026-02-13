@@ -1,8 +1,9 @@
 import { Layout } from "@/components/Layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost } from "@/lib/api";
-import { useState } from "react";
-import type { WorkoutTemplate, CustomWorkout, User, WorkoutAssignment } from "@shared/schema";
+import { useState, useEffect } from "react";
+import { useSearch } from "wouter";
+import type { WorkoutTemplate, CustomWorkout, User, WorkoutAssignment, GroupWithMemberCount } from "@shared/schema";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,8 +47,19 @@ export default function CoachAssignmentsPage() {
     queryFn: () => apiGet("/api/custom-workouts"),
   });
 
-  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const { data: coachGroups } = useQuery<GroupWithMemberCount[]>({
+    queryKey: ["/api/coach/groups"],
+    queryFn: () => apiGet("/api/coach/groups"),
+  });
+
+  const searchStr = useSearch();
+  const urlParams = new URLSearchParams(searchStr);
+  const preselectedGroupId = urlParams.get("groupId");
+
+  const [isAssignOpen, setIsAssignOpen] = useState(!!preselectedGroupId);
+  const [assignMode, setAssignMode] = useState<"athletes" | "group">(preselectedGroupId ? "group" : "athletes");
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(preselectedGroupId || "");
   const [sourceType, setSourceType] = useState<"TEMPLATE" | "CUSTOM">("TEMPLATE");
   const [sourceId, setSourceId] = useState<string>("");
   const [scheduledDate, setScheduledDate] = useState("");
@@ -60,19 +72,28 @@ export default function CoachAssignmentsPage() {
   });
 
   const assignMutation = useMutation({
-    mutationFn: () => apiPost("/api/coach/assignments", {
-      athleteIds: selectedAthletes,
-      sourceType,
-      sourceId: Number(sourceId),
-      scheduledDate,
-    }),
+    mutationFn: () => {
+      const payload: any = {
+        sourceType,
+        sourceId: Number(sourceId),
+        scheduledDate,
+      };
+      if (assignMode === "group") {
+        payload.groupId = Number(selectedGroupId);
+      } else {
+        payload.athleteIds = selectedAthletes;
+      }
+      return apiPost("/api/coach/assignments", payload);
+    },
     onSuccess: () => {
-      toast({ title: "Assigned", description: "Workout assigned to athlete(s)." });
+      toast({ title: "Assigned", description: assignMode === "group" ? "Workout assigned to all group members." : "Workout assigned to athlete(s)." });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/assignments"] });
       setIsAssignOpen(false);
       setSelectedAthletes([]);
+      setSelectedGroupId("");
       setSourceId("");
       setScheduledDate("");
+      setAssignMode("athletes");
     },
     onError: (err: Error) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -153,44 +174,91 @@ export default function CoachAssignmentsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Athletes ({selectedAthletes.length} selected)</Label>
-                {(athletes || []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No athletes registered yet.</p>
-                ) : (
-                  <div className="space-y-1 max-h-40 overflow-y-auto border rounded-md p-2">
-                    {(athletes || []).map(a => (
-                      <div
-                        key={a.id}
-                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer ${
-                          selectedAthletes.includes(a.id) ? "bg-primary/10 border border-primary/30" : "hover-elevate"
-                        }`}
-                        onClick={() => toggleAthlete(a.id)}
-                        data-testid={`athlete-option-${a.id}`}
-                      >
-                        <div className={`w-4 h-4 rounded-sm border-2 flex items-center justify-center ${
-                          selectedAthletes.includes(a.id) ? "bg-primary border-primary" : "border-muted-foreground"
-                        }`}>
-                          {selectedAthletes.includes(a.id) && (
-                            <CheckCircle className="w-3 h-3 text-primary-foreground" />
-                          )}
-                        </div>
-                        <span className="text-sm">
-                          {a.firstName} {a.lastName}
-                          {a.email && <span className="text-muted-foreground ml-1">({a.email})</span>}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <Label>Assign To</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={assignMode === "athletes" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setAssignMode("athletes")}
+                    data-testid="button-mode-athletes"
+                  >
+                    <Users className="w-4 h-4" />
+                    Individual Athletes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={assignMode === "group" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setAssignMode("group")}
+                    data-testid="button-mode-group"
+                  >
+                    <Users className="w-4 h-4" />
+                    Group
+                  </Button>
+                </div>
               </div>
+
+              {assignMode === "group" ? (
+                <div className="space-y-2">
+                  <Label>Group</Label>
+                  <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                    <SelectTrigger data-testid="select-assign-group">
+                      <SelectValue placeholder="Select a group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(coachGroups || []).filter(g => g.memberCount > 0).map(g => (
+                        <SelectItem key={g.id} value={String(g.id)}>
+                          {g.name} ({g.memberCount} athletes)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(coachGroups || []).filter(g => g.memberCount > 0).length === 0 && (
+                    <p className="text-sm text-muted-foreground">No groups with members. Create a group and add athletes first.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Athletes ({selectedAthletes.length} selected)</Label>
+                  {(athletes || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No athletes registered yet.</p>
+                  ) : (
+                    <div className="space-y-1 max-h-40 overflow-y-auto border rounded-md p-2">
+                      {(athletes || []).map(a => (
+                        <div
+                          key={a.id}
+                          className={`flex items-center gap-2 p-2 rounded-md cursor-pointer ${
+                            selectedAthletes.includes(a.id) ? "bg-primary/10 border border-primary/30" : "hover-elevate"
+                          }`}
+                          onClick={() => toggleAthlete(a.id)}
+                          data-testid={`athlete-option-${a.id}`}
+                        >
+                          <div className={`w-4 h-4 rounded-sm border-2 flex items-center justify-center ${
+                            selectedAthletes.includes(a.id) ? "bg-primary border-primary" : "border-muted-foreground"
+                          }`}>
+                            {selectedAthletes.includes(a.id) && (
+                              <CheckCircle className="w-3 h-3 text-primary-foreground" />
+                            )}
+                          </div>
+                          <span className="text-sm">
+                            {a.firstName} {a.lastName}
+                            {a.email && <span className="text-muted-foreground ml-1">({a.email})</span>}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Button
                 className="w-full"
                 onClick={() => assignMutation.mutate()}
-                disabled={assignMutation.isPending || !sourceId || !scheduledDate || selectedAthletes.length === 0}
+                disabled={assignMutation.isPending || !sourceId || !scheduledDate || (assignMode === "athletes" ? selectedAthletes.length === 0 : !selectedGroupId)}
                 data-testid="button-submit-assign"
               >
-                {assignMutation.isPending ? "Assigning..." : "Assign Workout"}
+                {assignMutation.isPending ? "Assigning..." : assignMode === "group" ? "Assign to Group" : "Assign Workout"}
               </Button>
             </div>
           </DialogContent>

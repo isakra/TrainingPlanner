@@ -226,6 +226,116 @@ export async function registerRoutes(
     res.json({ message: "Deleted" });
   });
 
+  // === COACH GROUPS ===
+
+  app.get(api.coachGroups.list.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const grps = await storage.getCoachGroups(userId);
+    res.json(grps);
+  });
+
+  app.post(api.coachGroups.create.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    try {
+      const input = api.coachGroups.create.input.parse(req.body);
+      const group = await storage.createGroup({
+        coachId: userId,
+        name: input.name,
+        description: input.description || null,
+      });
+      res.status(201).json(group);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get(api.coachGroups.get.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const group = await storage.getGroupWithMembers(Number(req.params.id));
+    if (!group) return res.status(404).json({ message: "Group not found" });
+    if (group.coachId !== userId) return res.status(403).json({ message: "Forbidden" });
+    res.json(group);
+  });
+
+  app.put(api.coachGroups.update.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    try {
+      const input = api.coachGroups.update.input.parse(req.body);
+      const group = await storage.getGroup(Number(req.params.id));
+      if (!group) return res.status(404).json({ message: "Group not found" });
+      if (group.coachId !== userId) return res.status(403).json({ message: "Forbidden" });
+      const updated = await storage.updateGroup(group.id, {
+        name: input.name,
+        description: input.description || null,
+      });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete(api.coachGroups.delete.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const group = await storage.getGroup(Number(req.params.id));
+    if (!group) return res.status(404).json({ message: "Group not found" });
+    if (group.coachId !== userId) return res.status(403).json({ message: "Forbidden" });
+    await storage.deleteGroup(group.id);
+    res.json({ message: "Deleted" });
+  });
+
+  app.post(api.coachGroups.addMember.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    try {
+      const input = api.coachGroups.addMember.input.parse(req.body);
+      const group = await storage.getGroup(Number(req.params.id));
+      if (!group) return res.status(404).json({ message: "Group not found" });
+      if (group.coachId !== userId) return res.status(403).json({ message: "Forbidden" });
+
+      const isConnected = await storage.isCoachAthletePair(userId, input.athleteId);
+      if (!isConnected) return res.status(403).json({ message: "Athlete is not connected to you" });
+
+      const isMember = await storage.isGroupMember(group.id, input.athleteId);
+      if (isMember) return res.status(409).json({ message: "Athlete is already in this group" });
+
+      const member = await storage.addGroupMember(group.id, input.athleteId);
+      res.status(201).json(member);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete(api.coachGroups.removeMember.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const group = await storage.getGroup(Number(req.params.id));
+    if (!group) return res.status(404).json({ message: "Group not found" });
+    if (group.coachId !== userId) return res.status(403).json({ message: "Forbidden" });
+
+    const isMember = await storage.isGroupMember(group.id, req.params.athleteId);
+    if (!isMember) return res.status(404).json({ message: "Athlete not in this group" });
+
+    await storage.removeGroupMember(group.id, req.params.athleteId);
+    res.json({ message: "Removed" });
+  });
+
+  // === ATHLETE GROUPS ===
+
+  app.get(api.athleteGroups.list.path, async (req, res) => {
+    const userId = await requireRole(req, res, "ATHLETE");
+    if (!userId) return;
+    const grps = await storage.getAthleteGroups(userId);
+    res.json(grps);
+  });
+
   // === COACH ASSIGNMENTS ===
 
   app.get(api.coachAssignments.list.path, async (req, res) => {
@@ -241,14 +351,28 @@ export async function registerRoutes(
     try {
       const input = api.coachAssignments.create.input.parse(req.body);
 
-      for (const athleteId of input.athleteIds) {
+      let athleteIds: string[] = [];
+
+      if (input.groupId) {
+        const group = await storage.getGroup(input.groupId);
+        if (!group) return res.status(404).json({ message: "Group not found" });
+        if (group.coachId !== userId) return res.status(403).json({ message: "You can only assign to your own groups" });
+        athleteIds = await storage.getGroupMemberAthleteIds(input.groupId);
+        if (athleteIds.length === 0) return res.status(400).json({ message: "Group has no members" });
+      } else if (input.athleteIds && input.athleteIds.length > 0) {
+        athleteIds = input.athleteIds;
+      } else {
+        return res.status(400).json({ message: "Either athleteIds or groupId must be provided" });
+      }
+
+      for (const athleteId of athleteIds) {
         const isPair = await storage.isCoachAthletePair(userId, athleteId);
         if (!isPair) return res.status(403).json({ message: "You can only assign workouts to connected athletes" });
       }
 
       const result = await storage.createAssignments({
         coachId: userId,
-        athleteIds: input.athleteIds,
+        athleteIds,
         sourceType: input.sourceType,
         sourceId: input.sourceId,
         scheduledDate: new Date(input.scheduledDate),
@@ -325,7 +449,31 @@ export async function registerRoutes(
         return res.status(403).json({ message: "You must select a role before messaging" });
       }
 
-      for (const pId of input.participantIds) {
+      let participantIds: string[] = input.participantIds || [];
+      let isGroup = input.isGroup || false;
+      let title = input.title;
+
+      if (input.groupId) {
+        const group = await storage.getGroupWithMembers(input.groupId);
+        if (!group) return res.status(404).json({ message: "Group not found" });
+
+        if (user.role === "COACH") {
+          if (group.coachId !== userId) return res.status(403).json({ message: "You can only create group chats for your own groups" });
+          participantIds = group.members.map(m => m.athleteId);
+        } else {
+          const isMember = await storage.isGroupMember(input.groupId, userId);
+          if (!isMember) return res.status(403).json({ message: "You are not a member of this group" });
+          participantIds = [group.coachId, ...group.members.map(m => m.athleteId).filter(id => id !== userId)];
+        }
+        isGroup = true;
+        title = title || group.name;
+      }
+
+      if (participantIds.length === 0) {
+        return res.status(400).json({ message: "No participants specified" });
+      }
+
+      for (const pId of participantIds) {
         if (pId === userId) continue;
         if (user.role === "COACH") {
           const isPair = await storage.isCoachAthletePair(userId, pId);
@@ -336,8 +484,8 @@ export async function registerRoutes(
         }
       }
 
-      const isGroup = input.isGroup || input.participantIds.length > 1;
-      const conv = await storage.createConversation(userId, input.participantIds, isGroup, input.title);
+      if (!isGroup) isGroup = participantIds.length > 1;
+      const conv = await storage.createConversation(userId, participantIds, isGroup, title);
       res.status(201).json(conv);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });

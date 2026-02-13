@@ -5,6 +5,7 @@ import {
   customWorkouts, customBlocks, customExercises,
   workoutAssignments, workoutLogs, setLogs,
   coachAthletes, conversations, conversationParticipants, messages,
+  groups, groupMembers,
   users,
   type Exercise, type InsertExercise,
   type Workout, type InsertWorkout,
@@ -22,6 +23,7 @@ import {
   type WorkoutLog, type InsertWorkoutLog, type WorkoutLogWithSets,
   type SetLog, type InsertSetLog,
   type CoachAthlete, type Conversation, type ConversationParticipant, type Message,
+  type Group, type InsertGroup, type GroupMember, type GroupWithMemberCount, type GroupWithMembers,
   type User,
 } from "@shared/schema";
 import { eq, and, desc, sql, inArray, asc } from "drizzle-orm";
@@ -76,6 +78,19 @@ export interface IStorage {
   connectCoachAthlete(coachId: string, athleteId: string): Promise<CoachAthlete>;
   disconnectCoachAthlete(coachId: string, athleteId: string): Promise<void>;
   getUserByEmail(email: string): Promise<User | undefined>;
+
+  // Groups
+  getCoachGroups(coachId: string): Promise<GroupWithMemberCount[]>;
+  getGroup(id: number): Promise<Group | undefined>;
+  getGroupWithMembers(id: number): Promise<GroupWithMembers | undefined>;
+  createGroup(data: InsertGroup): Promise<Group>;
+  updateGroup(id: number, data: { name: string; description?: string | null }): Promise<Group>;
+  deleteGroup(id: number): Promise<void>;
+  addGroupMember(groupId: number, athleteId: string): Promise<GroupMember>;
+  removeGroupMember(groupId: number, athleteId: string): Promise<void>;
+  isGroupMember(groupId: number, athleteId: string): Promise<boolean>;
+  getGroupMemberAthleteIds(groupId: number): Promise<string[]>;
+  getAthleteGroups(athleteId: string): Promise<GroupWithMemberCount[]>;
 
   // Messaging
   createConversation(creatorId: string, participantIds: string[], isGroup: boolean, title?: string): Promise<Conversation>;
@@ -439,6 +454,91 @@ export class DatabaseStorage implements IStorage {
   async disconnectCoachAthlete(coachId: string, athleteId: string): Promise<void> {
     await db.delete(coachAthletes)
       .where(and(eq(coachAthletes.coachId, coachId), eq(coachAthletes.athleteId, athleteId)));
+  }
+
+  // === GROUPS ===
+
+  async getCoachGroups(coachId: string): Promise<GroupWithMemberCount[]> {
+    const grps = await db.select().from(groups)
+      .where(eq(groups.coachId, coachId))
+      .orderBy(groups.name);
+
+    const result: GroupWithMemberCount[] = [];
+    for (const g of grps) {
+      const members = await db.select().from(groupMembers).where(eq(groupMembers.groupId, g.id));
+      result.push({ ...g, memberCount: members.length });
+    }
+    return result;
+  }
+
+  async getGroup(id: number): Promise<Group | undefined> {
+    const [g] = await db.select().from(groups).where(eq(groups.id, id)).limit(1);
+    return g;
+  }
+
+  async getGroupWithMembers(id: number): Promise<GroupWithMembers | undefined> {
+    const [g] = await db.select().from(groups).where(eq(groups.id, id)).limit(1);
+    if (!g) return undefined;
+
+    const memberRows = await db.select().from(groupMembers).where(eq(groupMembers.groupId, id));
+    const membersWithAthletes = [];
+    for (const m of memberRows) {
+      const [athlete] = await db.select().from(users).where(eq(users.id, m.athleteId)).limit(1);
+      if (athlete) membersWithAthletes.push({ ...m, athlete });
+    }
+    return { ...g, members: membersWithAthletes };
+  }
+
+  async createGroup(data: InsertGroup): Promise<Group> {
+    const [g] = await db.insert(groups).values(data).returning();
+    return g;
+  }
+
+  async updateGroup(id: number, data: { name: string; description?: string | null }): Promise<Group> {
+    const [g] = await db.update(groups).set(data).where(eq(groups.id, id)).returning();
+    return g;
+  }
+
+  async deleteGroup(id: number): Promise<void> {
+    await db.delete(groupMembers).where(eq(groupMembers.groupId, id));
+    await db.delete(groups).where(eq(groups.id, id));
+  }
+
+  async addGroupMember(groupId: number, athleteId: string): Promise<GroupMember> {
+    const [m] = await db.insert(groupMembers).values({ groupId, athleteId }).returning();
+    return m;
+  }
+
+  async removeGroupMember(groupId: number, athleteId: string): Promise<void> {
+    await db.delete(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.athleteId, athleteId)));
+  }
+
+  async isGroupMember(groupId: number, athleteId: string): Promise<boolean> {
+    const [row] = await db.select().from(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.athleteId, athleteId)))
+      .limit(1);
+    return !!row;
+  }
+
+  async getGroupMemberAthleteIds(groupId: number): Promise<string[]> {
+    const members = await db.select().from(groupMembers).where(eq(groupMembers.groupId, groupId));
+    return members.map(m => m.athleteId);
+  }
+
+  async getAthleteGroups(athleteId: string): Promise<GroupWithMemberCount[]> {
+    const memberRows = await db.select().from(groupMembers).where(eq(groupMembers.athleteId, athleteId));
+    if (memberRows.length === 0) return [];
+
+    const groupIds = memberRows.map(m => m.groupId);
+    const grps = await db.select().from(groups).where(inArray(groups.id, groupIds)).orderBy(groups.name);
+
+    const result: GroupWithMemberCount[] = [];
+    for (const g of grps) {
+      const allMembers = await db.select().from(groupMembers).where(eq(groupMembers.groupId, g.id));
+      result.push({ ...g, memberCount: allMembers.length });
+    }
+    return result;
   }
 
   // === MESSAGING ===

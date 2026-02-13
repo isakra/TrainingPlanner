@@ -1,0 +1,198 @@
+Continue building **TrainingPlanner**.
+
+NEW FEATURE: COACH ATHLETE GROUPS (TEAMS/SQUADS)
+
+Goal:
+- A coach can create “Groups” (e.g., “U16 Football”, “Offense”, “Goalkeepers”)
+- A coach can add/remove athletes to/from groups
+- A coach can assign workouts to:
+  - individual athletes OR
+  - a whole group (which creates assignments for all members)
+- Groups must also integrate with Messaging:
+  - Coach can start a group conversation with a selected Group
+  - Athletes in the group can message back in that group conversation
+
+SECURITY (NON-NEGOTIABLE)
+- A coach can ONLY manage groups they own.
+- A coach can ONLY add athletes to a group if the athlete is connected to them via CoachAthlete.
+- An athlete can ONLY view groups they are a member of.
+- Group-based assignment or messaging must be restricted to coach-owned groups and connected athletes.
+
+==================================================
+DATABASE / PRISMA MODELS (REQUIRED)
+==================================================
+
+Add these models:
+
+Group
+- id (cuid)
+- coachId (FK -> User.id)
+- name (string)
+- description (optional string)
+- createdAt (DateTime default now)
+
+GroupMember
+- id (cuid)
+- groupId (FK -> Group.id)
+- athleteId (FK -> User.id)
+- addedAt (DateTime default now)
+
+Constraints:
+- Unique (groupId, athleteId)
+- Group.coachId must be COACH
+- GroupMember.athleteId must be ATHLETE
+- IMPORTANT: when adding a GroupMember, verify CoachAthlete exists:
+  CoachAthlete where coachId = group.coachId AND athleteId = GroupMember.athleteId
+
+Relations:
+- User (COACH) has many Groups
+- Group has many GroupMembers
+- User (ATHLETE) has many GroupMemberships
+
+==================================================
+API ROUTES (REQUIRED)
+==================================================
+
+All routes must have:
+- NextAuth session check
+- Role check
+- Ownership checks
+- Zod validation
+- Proper errors: 400/401/403/404/409
+
+COACH ROUTES
+
+1) POST /api/coach/groups
+- create a group
+- body: { name, description? }
+
+2) GET /api/coach/groups
+- list coach-owned groups
+- include member count
+
+3) GET /api/coach/groups/:id
+- get group detail (must belong to coach)
+- include members list
+
+4) PUT /api/coach/groups/:id
+- edit group name/description (coach owned only)
+
+5) DELETE /api/coach/groups/:id
+- delete group (coach owned only, cascade members)
+
+6) POST /api/coach/groups/:id/members
+- add athlete to group
+- body: { athleteId }
+- MUST verify:
+  - group.coachId == session.user.id
+  - CoachAthlete exists for (coachId=session.user.id, athleteId)
+- If athlete not connected => 403
+- If already member => 409
+
+7) DELETE /api/coach/groups/:id/members/:athleteId
+- remove member (coach owned group only)
+
+ASSIGNMENTS UPGRADE
+
+8) POST /api/coach/assignments
+Enhance existing route to support:
+- assign to athleteIds OR assign to groupId
+
+Input (Zod):
+{
+  sourceType: "TEMPLATE" | "CUSTOM",
+  sourceId: string,
+  scheduledDate: string (ISO),
+  athleteIds?: string[],
+  groupId?: string
+}
+
+Rules:
+- Exactly one of athleteIds or groupId must be provided.
+- If groupId provided:
+  - verify group belongs to coach
+  - fetch all GroupMember athleteIds
+  - verify each athlete is connected (CoachAthlete) (should already be true but enforce anyway)
+  - create assignments for all members in ONE transaction
+- reject empty group (400)
+
+ATHLETE ROUTES
+
+9) GET /api/athlete/groups
+- list groups where athlete is a member
+
+==================================================
+MESSAGING INTEGRATION (REQUIRED)
+==================================================
+
+Extend existing messaging system:
+
+A) Allow conversation creation from a group:
+POST /api/messages/conversations
+Add optional field:
+- groupId?: string
+
+Behavior:
+- If groupId is provided:
+  - if COACH: verify group owned by coach, include all group members + coach as participants, set isGroup=true, title=group.name
+  - if ATHLETE: must be a member of that group; conversation must already include their coach; otherwise 403
+- Ensure only participants can access the conversation (existing rule remains)
+
+==================================================
+UI PAGES (REQUIRED)
+==================================================
+
+Add Coach group management:
+
+/coach/groups
+- list groups + member count
+- create group modal/form
+- click group -> detail
+
+/coach/groups/[id]
+- group detail
+- list members
+- add athlete dropdown (only coach’s connected athletes)
+- remove member button
+- “Assign workout to this group” button (goes to /coach/assign prefilled)
+/messages
+- add option “New group chat from Group”
+- from group detail: “Open group chat”
+
+Athlete:
+- /athlete/groups
+- list groups they are in
+- link to messages for group chat (if exists, open it; else allow athlete to request/start with coach)
+
+==================================================
+IMPLEMENTATION QUALITY
+==================================================
+
+Central helpers (required):
+- assertCoachOwnsGroup(coachId, groupId)
+- assertCoachConnectedToAthlete(coachId, athleteId)  (uses CoachAthlete)
+- getGroupAthleteIdsForCoach(groupId, coachId)
+- assertUserInConversation(userId, conversationId) (existing)
+
+Use Prisma transactions for:
+- add group members + checks (if batching)
+- assign to group (create many WorkoutAssignment rows)
+
+==================================================
+DELIVERABLE CHECKLIST
+==================================================
+
+- Prisma schema updated + migration runs
+- Groups CRUD works (coach-owned)
+- Add/remove members works with security enforced
+- Assign to group creates assignments for all members (transaction)
+- Athletes can see only their groups
+- Group chat creation works and is restricted to group members + coach
+- No coach can see/use another coach’s groups or athletes
+
+Start now:
+1) Update Prisma schema + migration
+2) Implement APIs with Zod + security helpers
+3) Build /coach/groups and /coach/groups/[id] UI
+4) Update assignments UI to support choosing a group
+5) Update messages to support group-based conversations
