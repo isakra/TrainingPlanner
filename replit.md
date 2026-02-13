@@ -86,6 +86,15 @@ Database tables:
 - `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class
 - All database operations go through this storage layer, making it easy to swap implementations
 
+### Bluetooth Heart Rate Monitoring
+- **Client-only feature** using Web Bluetooth API (requires Chrome on Android/macOS/Windows with HTTPS)
+- `client/src/hooks/use-bluetooth.ts` — `useBluetoothHeartRate()` hook for BLE Heart Rate Service connection
+- `client/src/components/BluetoothPanel.tsx` — UI components: `BluetoothConnectButton`, `BluetoothLiveCard`, `BluetoothErrorBanner`
+- Integrated into `AthleteWorkoutSessionPage` — athletes can connect a BLE heart rate monitor during workouts
+- Tracks live HR, session avg/max/min, color-coded HR zones (Rest, Warm Up, Fat Burn, Cardio, Peak, Max)
+- Proper cleanup: removes event listeners and disconnects GATT on unmount/disconnect, avoids duplicate listeners
+- Shows "connected but waiting for data" state when device connected but no readings yet
+
 ### Exercise Seed Data
 - `server/exercise-data.ts` contains a large library of pre-built exercises organized by muscle group and equipment type
 

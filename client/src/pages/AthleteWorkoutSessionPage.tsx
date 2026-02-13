@@ -14,6 +14,8 @@ import {
   ArrowLeft, CheckCircle, Dumbbell, Loader2, Save
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useBluetoothHeartRate } from "@/hooks/use-bluetooth";
+import { BluetoothConnectButton, BluetoothLiveCard, BluetoothErrorBanner } from "@/components/BluetoothPanel";
 
 interface SetEntry {
   exerciseName: string;
@@ -31,6 +33,7 @@ export default function AthleteWorkoutSessionPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const bt = useBluetoothHeartRate();
 
   const { data, isLoading } = useQuery({
     queryKey: ["/api/athlete/workouts", assignmentId],
@@ -161,7 +164,8 @@ export default function AthleteWorkoutSessionPage() {
           {isCompleted && <Badge variant="default" className="bg-green-600 no-default-active-elevate mt-1">Completed</Badge>}
         </div>
         {!isCompleted && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <BluetoothConnectButton bt={bt} />
             <Button
               variant="outline"
               className="gap-2"
@@ -188,6 +192,9 @@ export default function AthleteWorkoutSessionPage() {
       {workout.description && (
         <p className="text-sm text-muted-foreground">{workout.description}</p>
       )}
+
+      <BluetoothErrorBanner bt={bt} />
+      <BluetoothLiveCard bt={bt} />
 
       <div className="space-y-6">
         {exerciseNames.map(exName => {
