@@ -293,6 +293,101 @@ export const api = {
     },
   },
 
+  // Recurring Assignments
+  recurringAssignments: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/coach/recurring-assignments' as const,
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/coach/recurring-assignments' as const,
+      input: z.object({
+        sourceType: z.enum(["TEMPLATE", "CUSTOM"]),
+        sourceId: z.number(),
+        athleteIds: z.array(z.string()).optional(),
+        groupId: z.number().optional(),
+        frequency: z.enum(["weekly", "2x_week"]),
+        daysOfWeek: z.array(z.number().min(0).max(6)),
+        startDate: z.string(),
+        endDate: z.string(),
+      }).refine(
+        data => (data.athleteIds && data.athleteIds.length > 0) || data.groupId,
+        { message: "Either athleteIds or groupId must be provided" }
+      ),
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/coach/recurring-assignments/:id' as const,
+    },
+  },
+
+  // Workout Comments
+  workoutComments: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/workouts/:assignmentId/comments' as const,
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/workouts/:assignmentId/comments' as const,
+      input: z.object({ content: z.string().min(1) }),
+    },
+  },
+
+  // Wellness Check-ins
+  wellness: {
+    submit: {
+      method: 'POST' as const,
+      path: '/api/athlete/wellness' as const,
+      input: z.object({
+        sleep: z.number().min(1).max(5),
+        soreness: z.number().min(1).max(5),
+        stress: z.number().min(1).max(5),
+        mood: z.number().min(1).max(5),
+        note: z.string().optional(),
+      }),
+    },
+    history: {
+      method: 'GET' as const,
+      path: '/api/athlete/wellness' as const,
+    },
+    coachView: {
+      method: 'GET' as const,
+      path: '/api/coach/athletes/:id/wellness' as const,
+    },
+  },
+
+  // Personal Records
+  personalRecords: {
+    athlete: {
+      method: 'GET' as const,
+      path: '/api/athlete/prs' as const,
+    },
+    coachView: {
+      method: 'GET' as const,
+      path: '/api/coach/athletes/:id/prs' as const,
+    },
+  },
+
+  // Exercise History
+  exerciseHistory: {
+    athlete: {
+      method: 'GET' as const,
+      path: '/api/athlete/exercise-history' as const,
+    },
+    coachView: {
+      method: 'GET' as const,
+      path: '/api/coach/athletes/:id/exercise-history' as const,
+    },
+  },
+
+  // Coach Athlete Detail
+  coachAthleteDetail: {
+    method: 'GET' as const,
+    path: '/api/coach/athletes/:id' as const,
+  },
+
   // Legacy
   workouts: {
     list: { method: 'GET' as const, path: '/api/workouts' as const },

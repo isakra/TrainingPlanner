@@ -93,3 +93,27 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-muted rounded-full hover:bg-muted-foreground/50 transition-colors;
 }
+
+/* Elevation and Toggle Utilities */
+@layer components {
+  .hover-elevate {
+    @apply transition-shadow duration-200;
+  }
+  .hover-elevate:hover {
+    @apply shadow-lg;
+  }
+
+  .active-elevate-2 {
+    @apply transition-shadow duration-100;
+  }
+  .active-elevate-2:active {
+    @apply shadow-xl;
+  }
+
+  .toggle-elevate {
+    @apply transition-all duration-200;
+  }
+  .toggle-elevate.toggle-elevated {
+    @apply bg-primary/20 shadow-md;
+  }
+}

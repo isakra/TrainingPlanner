@@ -16,10 +16,14 @@ import CoachAssignmentsPage from "@/pages/CoachAssignmentsPage";
 import CoachAthletesPage from "@/pages/CoachAthletesPage";
 import CoachGroupsPage from "@/pages/CoachGroupsPage";
 import CoachGroupDetailPage from "@/pages/CoachGroupDetailPage";
+import CoachAthleteDetailPage from "@/pages/CoachAthleteDetailPage";
 import AthleteWorkoutsPage from "@/pages/AthleteWorkoutsPage";
 import AthleteWorkoutSessionPage from "@/pages/AthleteWorkoutSessionPage";
 import AthleteGroupsPage from "@/pages/AthleteGroupsPage";
+import AthletePRsPage from "@/pages/AthletePRsPage";
+import CoachRecurringPage from "@/pages/CoachRecurringPage";
 import MessagesPage from "@/pages/MessagesPage";
+import WellnessPage from "@/pages/WellnessPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ component: Component, requiredRole }: { component: React.ComponentType; requiredRole?: "COACH" | "ATHLETE" }) {
@@ -64,15 +68,19 @@ function Router() {
       <Route path="/coach/templates" component={() => <ProtectedRoute component={CoachTemplatesPage} requiredRole="COACH" />} />
       <Route path="/coach/workouts" component={() => <ProtectedRoute component={CoachWorkoutsPage} requiredRole="COACH" />} />
       <Route path="/coach/workouts/:id" component={() => <ProtectedRoute component={CoachWorkoutEditPage} requiredRole="COACH" />} />
+      <Route path="/coach/athletes/:id" component={() => <ProtectedRoute component={CoachAthleteDetailPage} requiredRole="COACH" />} />
       <Route path="/coach/athletes" component={() => <ProtectedRoute component={CoachAthletesPage} requiredRole="COACH" />} />
       <Route path="/coach/groups/:id" component={() => <ProtectedRoute component={CoachGroupDetailPage} requiredRole="COACH" />} />
       <Route path="/coach/groups" component={() => <ProtectedRoute component={CoachGroupsPage} requiredRole="COACH" />} />
       <Route path="/coach/assignments" component={() => <ProtectedRoute component={CoachAssignmentsPage} requiredRole="COACH" />} />
+      <Route path="/coach/recurring" component={() => <ProtectedRoute component={CoachRecurringPage} requiredRole="COACH" />} />
       
       {/* Athlete Routes */}
       <Route path="/athlete/workouts" component={() => <ProtectedRoute component={AthleteWorkoutsPage} requiredRole="ATHLETE" />} />
       <Route path="/athlete/workouts/:assignmentId" component={() => <ProtectedRoute component={AthleteWorkoutSessionPage} requiredRole="ATHLETE" />} />
       <Route path="/athlete/groups" component={() => <ProtectedRoute component={AthleteGroupsPage} requiredRole="ATHLETE" />} />
+      <Route path="/athlete/wellness" component={() => <ProtectedRoute component={WellnessPage} requiredRole="ATHLETE" />} />
+      <Route path="/athlete/prs" component={() => <ProtectedRoute component={AthletePRsPage} requiredRole="ATHLETE" />} />
 
       {/* Shared Routes */}
       <Route path="/messages" component={() => <ProtectedRoute component={MessagesPage} />} />

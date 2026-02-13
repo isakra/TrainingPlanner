@@ -7,6 +7,7 @@ import {
   coachAthletes, conversations, conversationParticipants, messages,
   groups, groupMembers,
   users,
+  recurringAssignments, personalRecords, workoutComments, wellnessCheckins,
   type Exercise, type InsertExercise,
   type Workout, type InsertWorkout,
   type WorkoutExercise, type InsertWorkoutExercise,
@@ -25,6 +26,10 @@ import {
   type CoachAthlete, type Conversation, type ConversationParticipant, type Message,
   type Group, type InsertGroup, type GroupMember, type GroupWithMemberCount, type GroupWithMembers,
   type User,
+  type RecurringAssignment, type InsertRecurringAssignment,
+  type PersonalRecord, type InsertPersonalRecord,
+  type WorkoutComment, type InsertWorkoutComment, type WorkoutCommentWithAuthor,
+  type WellnessCheckin, type InsertWellnessCheckin,
 } from "@shared/schema";
 import { eq, and, desc, sql, inArray, asc } from "drizzle-orm";
 
@@ -99,6 +104,28 @@ export interface IStorage {
   sendMessage(conversationId: number, senderId: string, content: string): Promise<Message>;
   isUserInConversation(userId: string, conversationId: number): Promise<boolean>;
   getConversationParticipants(conversationId: number): Promise<(ConversationParticipant & { user: User })[]>;
+
+  // Recurring Assignments
+  getRecurringAssignments(coachId: string): Promise<RecurringAssignment[]>;
+  createRecurringAssignment(data: InsertRecurringAssignment): Promise<RecurringAssignment>;
+  deactivateRecurringAssignment(id: number): Promise<RecurringAssignment>;
+  getRecurringAssignment(id: number): Promise<RecurringAssignment | undefined>;
+
+  // Workout Comments
+  getWorkoutComments(assignmentId: number): Promise<WorkoutCommentWithAuthor[]>;
+  createWorkoutComment(data: InsertWorkoutComment): Promise<WorkoutComment>;
+
+  // Wellness Check-ins
+  createWellnessCheckin(data: InsertWellnessCheckin): Promise<WellnessCheckin>;
+  getAthleteWellness(athleteId: string): Promise<WellnessCheckin[]>;
+  getLatestWellness(athleteId: string): Promise<WellnessCheckin | undefined>;
+
+  // Personal Records
+  getAthletePRs(athleteId: string): Promise<PersonalRecord[]>;
+  upsertPersonalRecord(data: InsertPersonalRecord): Promise<PersonalRecord>;
+
+  // Exercise History
+  getExerciseHistory(athleteId: string, exerciseName?: string): Promise<SetLog[]>;
 
   // Legacy (keep for backward compat)
   getWorkouts(): Promise<Workout[]>;
@@ -652,6 +679,137 @@ export class DatabaseStorage implements IStorage {
       if (user) result.push({ ...row, user });
     }
     return result;
+  }
+
+  // === RECURRING ASSIGNMENTS ===
+
+  async getRecurringAssignments(coachId: string): Promise<RecurringAssignment[]> {
+    return await db.select().from(recurringAssignments)
+      .where(and(eq(recurringAssignments.coachId, coachId), eq(recurringAssignments.active, true)))
+      .orderBy(desc(recurringAssignments.createdAt));
+  }
+
+  async createRecurringAssignment(data: InsertRecurringAssignment): Promise<RecurringAssignment> {
+    const [row] = await db.insert(recurringAssignments).values({ ...data, active: true }).returning();
+    return row;
+  }
+
+  async deactivateRecurringAssignment(id: number): Promise<RecurringAssignment> {
+    const [row] = await db.update(recurringAssignments)
+      .set({ active: false })
+      .where(eq(recurringAssignments.id, id))
+      .returning();
+    return row;
+  }
+
+  async getRecurringAssignment(id: number): Promise<RecurringAssignment | undefined> {
+    const [row] = await db.select().from(recurringAssignments).where(eq(recurringAssignments.id, id)).limit(1);
+    return row;
+  }
+
+  // === WORKOUT COMMENTS ===
+
+  async getWorkoutComments(assignmentId: number): Promise<WorkoutCommentWithAuthor[]> {
+    const comments = await db.select().from(workoutComments)
+      .where(eq(workoutComments.assignmentId, assignmentId))
+      .orderBy(asc(workoutComments.createdAt));
+
+    const result: WorkoutCommentWithAuthor[] = [];
+    for (const comment of comments) {
+      const [author] = await db.select().from(users).where(eq(users.id, comment.authorId)).limit(1);
+      if (author) {
+        result.push({ ...comment, author });
+      }
+    }
+    return result;
+  }
+
+  async createWorkoutComment(data: InsertWorkoutComment): Promise<WorkoutComment> {
+    const [row] = await db.insert(workoutComments).values(data).returning();
+    return row;
+  }
+
+  // === WELLNESS CHECK-INS ===
+
+  async createWellnessCheckin(data: InsertWellnessCheckin): Promise<WellnessCheckin> {
+    const [row] = await db.insert(wellnessCheckins).values(data).returning();
+    return row;
+  }
+
+  async getAthleteWellness(athleteId: string): Promise<WellnessCheckin[]> {
+    return await db.select().from(wellnessCheckins)
+      .where(eq(wellnessCheckins.athleteId, athleteId))
+      .orderBy(desc(wellnessCheckins.date))
+      .limit(90);
+  }
+
+  async getLatestWellness(athleteId: string): Promise<WellnessCheckin | undefined> {
+    const [row] = await db.select().from(wellnessCheckins)
+      .where(eq(wellnessCheckins.athleteId, athleteId))
+      .orderBy(desc(wellnessCheckins.date))
+      .limit(1);
+    return row;
+  }
+
+  // === PERSONAL RECORDS ===
+
+  async getAthletePRs(athleteId: string): Promise<PersonalRecord[]> {
+    return await db.select().from(personalRecords)
+      .where(eq(personalRecords.athleteId, athleteId))
+      .orderBy(asc(personalRecords.exerciseName), desc(personalRecords.date));
+  }
+
+  async upsertPersonalRecord(data: InsertPersonalRecord): Promise<PersonalRecord> {
+    const existing = await db.select().from(personalRecords)
+      .where(and(
+        eq(personalRecords.athleteId, data.athleteId),
+        eq(personalRecords.exerciseName, data.exerciseName),
+        eq(personalRecords.type, data.type),
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const current = existing[0];
+      const newVal = parseFloat(data.value);
+      const oldVal = parseFloat(current.value);
+      if (newVal > oldVal) {
+        const [updated] = await db.update(personalRecords)
+          .set({ value: data.value, date: data.date, reps: data.reps, assignmentId: data.assignmentId })
+          .where(eq(personalRecords.id, current.id))
+          .returning();
+        return updated;
+      }
+      return current;
+    }
+
+    const [row] = await db.insert(personalRecords).values(data).returning();
+    return row;
+  }
+
+  // === EXERCISE HISTORY ===
+
+  async getExerciseHistory(athleteId: string, exerciseName?: string): Promise<SetLog[]> {
+    const conditions = [eq(workoutLogs.athleteId, athleteId)];
+
+    const baseQuery = db.select({ setLog: setLogs })
+      .from(setLogs)
+      .innerJoin(workoutLogs, eq(setLogs.logId, workoutLogs.id))
+      .where(and(...conditions))
+      .orderBy(desc(setLogs.id))
+      .limit(500);
+
+    if (exerciseName) {
+      const rows = await db.select({ setLog: setLogs })
+        .from(setLogs)
+        .innerJoin(workoutLogs, eq(setLogs.logId, workoutLogs.id))
+        .where(and(eq(workoutLogs.athleteId, athleteId), eq(setLogs.exerciseName, exerciseName)))
+        .orderBy(desc(setLogs.id))
+        .limit(500);
+      return rows.map(r => r.setLog);
+    }
+
+    const rows = await baseQuery;
+    return rows.map(r => r.setLog);
   }
 
   // === LEGACY METHODS ===

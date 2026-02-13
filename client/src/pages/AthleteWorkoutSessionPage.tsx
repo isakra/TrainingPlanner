@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowLeft, CheckCircle, Dumbbell, Loader2, Save, Heart, Activity
+  ArrowLeft, CheckCircle, Dumbbell, Loader2, Save, Heart, Activity, MessageSquare
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 import { useBluetoothHeartRate } from "@/hooks/use-bluetooth";
 import { BluetoothConnectButton, BluetoothLiveCard, BluetoothErrorBanner } from "@/components/BluetoothPanel";
 
@@ -44,6 +45,34 @@ export default function AthleteWorkoutSessionPage() {
   const [setEntries, setSetEntries] = useState<SetEntry[]>([]);
   const [overallNotes, setOverallNotes] = useState("");
   const [initialized, setInitialized] = useState(false);
+  const [commentText, setCommentText] = useState("");
+
+  interface WorkoutCommentWithAuthor {
+    id: number;
+    assignmentId: number;
+    authorId: string;
+    content: string;
+    createdAt: string;
+    author: { id: string; firstName: string; lastName: string; email: string; role: string; profileImageUrl: string | null };
+  }
+
+  const { data: commentsData } = useQuery<WorkoutCommentWithAuthor[]>({
+    queryKey: ["/api/workouts", assignmentId, "comments"],
+    queryFn: () => apiGet(`/api/workouts/${assignmentId}/comments`),
+    enabled: !!assignmentId,
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: () => apiPost(`/api/workouts/${assignmentId}/comments`, { content: commentText }),
+    onSuccess: () => {
+      setCommentText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/workouts", assignmentId, "comments"] });
+      toast({ title: "Comment added" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   useEffect(() => {
     if (data && !initialized) {
@@ -331,6 +360,52 @@ export default function AthleteWorkoutSessionPage() {
           data-testid="input-overall-notes"
         />
       </div>
+
+      <Card data-testid="card-comments">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            Comments
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {commentsData && commentsData.length > 0 ? (
+            <div className="space-y-3" data-testid="comments-list">
+              {commentsData.map((comment) => (
+                <div key={comment.id} className="border-b pb-3 last:border-b-0" data-testid={`comment-item-${comment.id}`}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium" data-testid={`comment-author-${comment.id}`}>
+                      {comment.author.firstName} {comment.author.lastName}
+                    </span>
+                    <span className="text-xs text-muted-foreground" data-testid={`comment-date-${comment.id}`}>
+                      {format(new Date(comment.createdAt), "MMM d, yyyy h:mm a")}
+                    </span>
+                  </div>
+                  <p className="text-sm mt-1" data-testid={`comment-content-${comment.id}`}>{comment.content}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground" data-testid="text-no-comments">No comments yet.</p>
+          )}
+
+          <div className="space-y-2">
+            <Textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Add a comment..."
+              data-testid="input-comment"
+            />
+            <Button
+              onClick={() => addCommentMutation.mutate()}
+              disabled={!commentText.trim() || addCommentMutation.isPending}
+              data-testid="button-add-comment"
+            >
+              {addCommentMutation.isPending ? "Posting..." : "Add Comment"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </Layout>
   );
 }

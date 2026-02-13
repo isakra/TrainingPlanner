@@ -1,0 +1,278 @@
+You are continuing development of the web app **TrainingPlanner** (name is strict — do not rename).
+
+I want you to implement **Phase 1 + Phase 2** features (below) in a production-ready way, while keeping the stack exactly the same.
+
+========================================================
+STACK (STRICT — DO NOT CHANGE)
+========================================================
+- Next.js (App Router) + TypeScript
+- Tailwind CSS
+- Backend: Next.js Route Handlers only (app/api/**)
+- Database: Prisma ORM with PostgreSQL (fallback: SQLite with Prisma)
+- Auth: NextAuth (Credentials)
+- Validation: Zod on EVERY API input
+- Security: role + ownership checks on EVERY API route
+
+Roles:
+- COACH
+- ATHLETE
+
+========================================================
+PHASE 1 (MUST BUILD) — SELLABLE MVP
+========================================================
+
+A) Coach ↔ Athlete connection (already planned, enforce everywhere)
+- CoachAthlete join table is the single source of truth.
+- Coaches can only see/assign/message connected athletes.
+
+APIs:
+- POST /api/coach/athletes/connect (by email)
+- GET  /api/coach/athletes
+
+UI:
+- /coach/athletes (list + connect form)
+
+B) Groups (Teams/Squads)
+- Coaches can create groups (e.g., “U19”, “First Team”, “Goalkeepers”)
+- Add/remove connected athletes to groups
+- Athletes can view groups they belong to
+
+APIs:
+- POST /api/coach/groups
+- GET  /api/coach/groups
+- GET  /api/coach/groups/:id
+- PUT  /api/coach/groups/:id
+- DELETE /api/coach/groups/:id
+- POST /api/coach/groups/:id/members
+- DELETE /api/coach/groups/:id/members/:athleteId
+- GET /api/athlete/groups
+
+UI:
+- /coach/groups (list + create)
+- /coach/groups/[id] (members manage + open group chat + assign button)
+- /athlete/groups (list)
+
+C) Workout templates + custom workouts
+- Pre-made template library (seed >= 30 templates)
+- Coach can clone template -> custom workout (deep copy blocks/exercises)
+- Coach can create/edit custom workouts from scratch
+
+APIs:
+- GET  /api/coach/templates
+- GET  /api/coach/templates/:id
+- POST /api/coach/templates/:id/clone
+- POST /api/coach/workouts
+- GET  /api/coach/workouts/:id
+- PUT  /api/coach/workouts/:id
+
+UI:
+- /coach/templates
+- /coach/templates/[id]
+- /coach/workouts/new
+- /coach/workouts/[id]/edit
+
+D) Assignments (individual + group)
+- Coach can assign TEMPLATE or CUSTOM workout to:
+  - athleteIds OR groupId (exactly one)
+- Group assignment creates assignments for ALL members in a single Prisma transaction.
+- Athlete can view upcoming/completed workouts.
+
+APIs:
+- POST /api/coach/assignments  (supports athleteIds or groupId)
+- GET  /api/coach/assignments
+- GET  /api/athlete/workouts
+- GET  /api/athlete/workouts/:assignmentId
+
+UI:
+- /coach/assign (choose template/custom + choose athlete(s) or group + date)
+- /coach/assignments (status)
+- /athlete/workouts (list)
+
+E) Logging + Completion
+- Athlete logs results per set (weight/reps/time/distance/rpe/notes)
+- Athlete marks assignment completed
+- Coach can view logs for their assignments
+
+APIs:
+- POST /api/athlete/workouts/:assignmentId/log
+- POST /api/athlete/workouts/:assignmentId/complete
+- GET  /api/coach/assignments (include completion + link to logs)
+- GET  /api/coach/athletes/:id (athlete overview + recent logs) OR equivalent route
+
+UI:
+- /athlete/workouts/[assignmentId] (log screen + complete button)
+- /coach/athletes/[id] (recent logs)
+
+F) Messaging (two-way, direct + group)
+- Coach ↔ athlete direct conversations
+- Group conversations with a whole Group
+- Athletes can send messages back
+- Only allowed between connected relationships / group memberships
+
+DB Models:
+- Conversation, ConversationParticipant, Message
+- Integrate with Group chat creation (groupId optional)
+
+APIs:
+- POST /api/messages/conversations  (supports direct/group OR groupId)
+- GET  /api/messages/conversations
+- GET  /api/messages/conversations/:id/messages (paginated)
+- POST /api/messages/conversations/:id/messages
+
+UI:
+- /messages (shared by coach + athlete, sidebar + chat panel)
+
+G) Coach dashboard (simple but useful)
+- Show today’s assignments:
+  - total assigned
+  - completed count
+  - athletes not completed
+- Show recent messages
+
+UI:
+- /coach/dashboard (new)
+
+========================================================
+PHASE 2 (MUST BUILD) — “COACHES ARE IMPRESSED”
+========================================================
+
+1) Recurring assignments
+- Coach can create repeating assignments:
+  - weekly (e.g., every Monday for N weeks)
+  - 2x/week (e.g., Mon+Thu for N weeks)
+- Implement as a “generator” that creates WorkoutAssignment rows up front.
+
+DB:
+- RecurringAssignment (stores rule + start/end + source info + target athlete/group)
+- Generated assignments reference recurringId (optional)
+
+APIs:
+- POST /api/coach/recurring-assignments
+- GET  /api/coach/recurring-assignments
+- DELETE /api/coach/recurring-assignments/:id (should not delete already-generated assignments; just stop future ones)
+
+UI:
+- /coach/assign should support “One-time” vs “Recurring”
+- /coach/recurring (list and manage)
+
+2) Exercise history + simple charts
+- For each athlete, show exercise history:
+  - filter by exercise name
+  - list past logged sets
+  - show simple chart data (client chart library optional; if none, at least show table + trend)
+- Keep MVP-friendly.
+
+APIs:
+- GET /api/coach/athletes/:id/exercise-history?name=Bench%20Press
+- GET /api/athlete/exercise-history?name=Bench%20Press
+
+UI:
+- /coach/athletes/[id] add “Exercise History” tab/section
+- /athlete/profile or /athlete/history (new)
+
+3) PR detection
+- Automatically detect PRs when athlete logs:
+  - heaviest weight for a given reps (basic)
+  - best 1RM estimate (Epley or similar) (optional)
+  - fastest time for distance OR longest distance in time (optional)
+- Store PR records so they can be displayed and queried quickly.
+
+DB:
+- PersonalRecord table (athleteId, exerciseName, type, value, reps?, date, assignmentId?)
+
+APIs:
+- PR computed/updated during log write
+- GET /api/athlete/prs
+- GET /api/coach/athletes/:id/prs
+
+UI:
+- Athlete: “My PRs” section
+- Coach athlete page: “PRs” section
+
+4) Workout comments (threaded per assignment)
+- Athlete can comment on an assigned workout
+- Coach can reply
+- Visible on the workout detail screen
+
+DB:
+- WorkoutComment (assignmentId, authorId, content, createdAt)
+
+APIs:
+- GET  /api/workouts/:assignmentId/comments (auth + ownership)
+- POST /api/workouts/:assignmentId/comments
+
+UI:
+- /athlete/workouts/[assignmentId] comments panel
+- /coach/assignments/[assignmentId] or /coach/athletes/[id] drill-in view
+
+5) Wellness check-ins (readiness)
+- Athlete submits daily check-in:
+  - sleep (1-5)
+  - soreness (1-5)
+  - stress (1-5)
+  - mood (1-5)
+  - optional note
+- Coach sees simple red/yellow/green indicator and trend.
+
+DB:
+- WellnessCheckin (athleteId, date, sleep, soreness, stress, mood, note)
+
+APIs:
+- POST /api/athlete/wellness
+- GET  /api/athlete/wellness (history)
+- GET  /api/coach/athletes/:id/wellness
+
+UI:
+- Athlete: /athlete/wellness (submit + history)
+- Coach athlete page: wellness section + status
+
+========================================================
+SECURITY (ABSOLUTELY REQUIRED)
+========================================================
+- Central helpers (must exist and be used everywhere):
+  - requireSession()
+  - requireRole("COACH"|"ATHLETE")
+  - assertCoachConnectedToAthlete(coachId, athleteId)  // uses CoachAthlete
+  - assertCoachOwnsGroup(coachId, groupId)
+  - assertUserInConversation(userId, conversationId)
+  - assertCoachOwnsAssignment(coachId, assignmentId) OR check assignment.coachId
+  - assertAthleteOwnsAssignment(athleteId, assignmentId)
+
+- Any failure must return:
+  - 401 if not logged in
+  - 403 if logged in but not allowed
+  - 404 if resource doesn’t exist (and don’t leak other users’ data)
+
+========================================================
+DATA + SEEDING (REQUIRED)
+========================================================
+- Seed at least 30 workout templates (strength, conditioning, running)
+- Seed demo users:
+  - coach@example.com / Password123!
+  - athlete@example.com / Password123!
+- Seed one demo group and connect the demo athlete to demo coach.
+
+========================================================
+DELIVERABLES
+========================================================
+- TrainingPlanner runs with one command
+- README includes:
+  - env vars
+  - prisma migrate + seed
+  - demo credentials
+  - key pages and test flow
+
+========================================================
+WORKFLOW (FOLLOW ORDER)
+========================================================
+1) Update Prisma schema for all Phase 1 + Phase 2 models
+2) Migrate + seed
+3) Implement auth helpers + security helpers
+4) Implement APIs (Phase 1 first, then Phase 2)
+5) Build UI pages (Phase 1 first, then Phase 2)
+6) Test flows with demo accounts and fix any security holes
+
+Do NOT simplify features.
+Do NOT change the stack.
+Do NOT rename TrainingPlanner.
+Proceed step-by-step until Phase 1 + Phase 2 are working end-to-end.

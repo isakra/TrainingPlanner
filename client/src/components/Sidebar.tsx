@@ -12,6 +12,8 @@ import {
   Send,
   MessageSquare,
   UsersRound,
+  Repeat,
+  Heart,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,6 +30,7 @@ export function Sidebar() {
     { label: "My Athletes", icon: Users, href: "/coach/athletes" },
     { label: "Groups", icon: UsersRound, href: "/coach/groups" },
     { label: "Assignments", icon: Send, href: "/coach/assignments" },
+    { label: "Recurring", icon: Repeat, href: "/coach/recurring" },
     { label: "Messages", icon: MessageSquare, href: "/messages" },
     { label: "Exercises", icon: Dumbbell, href: "/exercises" },
   ];
@@ -36,6 +39,8 @@ export function Sidebar() {
     { label: "Dashboard", icon: LayoutDashboard, href: "/" },
     { label: "My Workouts", icon: Calendar, href: "/athlete/workouts" },
     { label: "My Groups", icon: UsersRound, href: "/athlete/groups" },
+    { label: "Wellness", icon: Heart, href: "/athlete/wellness" },
+    { label: "My PRs", icon: Trophy, href: "/athlete/prs" },
     { label: "Messages", icon: MessageSquare, href: "/messages" },
     { label: "Exercises", icon: Dumbbell, href: "/exercises" },
   ];

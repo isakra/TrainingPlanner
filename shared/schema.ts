@@ -212,6 +212,61 @@ export const groupMembers = pgTable("group_members", {
   uniqueIndex("group_member_unique").on(table.groupId, table.athleteId),
 ]);
 
+// === RECURRING ASSIGNMENTS ===
+
+export const recurringAssignments = pgTable("recurring_assignments", {
+  id: serial("id").primaryKey(),
+  coachId: text("coach_id").notNull(),
+  sourceType: text("source_type").notNull(),
+  sourceId: integer("source_id").notNull(),
+  athleteIds: text("athlete_ids").array().default([]),
+  groupId: integer("group_id"),
+  frequency: text("frequency").notNull(),
+  daysOfWeek: integer("days_of_week").array().default([]),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === PERSONAL RECORDS ===
+
+export const personalRecords = pgTable("personal_records", {
+  id: serial("id").primaryKey(),
+  athleteId: text("athlete_id").notNull(),
+  exerciseName: text("exercise_name").notNull(),
+  type: text("type").notNull(),
+  value: text("value").notNull(),
+  reps: integer("reps"),
+  date: timestamp("date").notNull(),
+  assignmentId: integer("assignment_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === WORKOUT COMMENTS ===
+
+export const workoutComments = pgTable("workout_comments", {
+  id: serial("id").primaryKey(),
+  assignmentId: integer("assignment_id").notNull(),
+  authorId: text("author_id").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// === WELLNESS CHECK-INS ===
+
+export const wellnessCheckins = pgTable("wellness_checkins", {
+  id: serial("id").primaryKey(),
+  athleteId: text("athlete_id").notNull(),
+  date: timestamp("date").notNull(),
+  sleep: integer("sleep").notNull(),
+  soreness: integer("soreness").notNull(),
+  stress: integer("stress").notNull(),
+  mood: integer("mood").notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === PRESCRIPTION JSON SCHEMA ===
 
 export const prescriptionSchema = z.object({
@@ -248,6 +303,11 @@ export const insertMessageSchema = createInsertSchema(messages).omit({ id: true,
 
 export const insertGroupSchema = createInsertSchema(groups).omit({ id: true, createdAt: true });
 export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({ id: true, addedAt: true });
+
+export const insertRecurringAssignmentSchema = createInsertSchema(recurringAssignments).omit({ id: true, createdAt: true, active: true });
+export const insertPersonalRecordSchema = createInsertSchema(personalRecords).omit({ id: true, createdAt: true });
+export const insertWorkoutCommentSchema = createInsertSchema(workoutComments).omit({ id: true, createdAt: true });
+export const insertWellnessCheckinSchema = createInsertSchema(wellnessCheckins).omit({ id: true, createdAt: true });
 
 export const insertWorkoutSchema = createInsertSchema(workouts).omit({ id: true });
 export const insertWorkoutExerciseSchema = createInsertSchema(workoutExercises).omit({ id: true });
@@ -306,6 +366,20 @@ export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
 
 export type GroupWithMemberCount = Group & { memberCount: number };
 export type GroupWithMembers = Group & { members: (GroupMember & { athlete: User })[] };
+
+export type RecurringAssignment = typeof recurringAssignments.$inferSelect;
+export type InsertRecurringAssignment = z.infer<typeof insertRecurringAssignmentSchema>;
+
+export type PersonalRecord = typeof personalRecords.$inferSelect;
+export type InsertPersonalRecord = z.infer<typeof insertPersonalRecordSchema>;
+
+export type WorkoutComment = typeof workoutComments.$inferSelect;
+export type InsertWorkoutComment = z.infer<typeof insertWorkoutCommentSchema>;
+
+export type WellnessCheckin = typeof wellnessCheckins.$inferSelect;
+export type InsertWellnessCheckin = z.infer<typeof insertWellnessCheckinSchema>;
+
+export type WorkoutCommentWithAuthor = WorkoutComment & { author: User };
 
 export type Workout = typeof workouts.$inferSelect;
 export type InsertWorkout = z.infer<typeof insertWorkoutSchema>;

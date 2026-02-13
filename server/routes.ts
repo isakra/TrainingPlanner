@@ -584,6 +584,42 @@ export async function registerRoutes(
         notes: s.notes ?? null,
       })));
       const fullLog = await storage.getWorkoutLog(Number(req.params.assignmentId));
+
+      for (const s of input.sets) {
+        if (s.weight && s.reps && parseFloat(s.weight) > 0 && s.reps > 0) {
+          await storage.upsertPersonalRecord({
+            athleteId: userId,
+            exerciseName: s.exerciseName,
+            type: "weight",
+            value: s.weight,
+            reps: s.reps,
+            date: new Date(),
+            assignmentId: Number(req.params.assignmentId),
+          });
+          const estimated1RM = parseFloat(s.weight) * (1 + s.reps / 30);
+          await storage.upsertPersonalRecord({
+            athleteId: userId,
+            exerciseName: s.exerciseName,
+            type: "estimated_1rm",
+            value: estimated1RM.toFixed(1),
+            reps: 1,
+            date: new Date(),
+            assignmentId: Number(req.params.assignmentId),
+          });
+        }
+        if (s.timeSeconds && s.distanceMeters && s.distanceMeters > 0) {
+          await storage.upsertPersonalRecord({
+            athleteId: userId,
+            exerciseName: s.exerciseName,
+            type: "fastest_time",
+            value: String(s.timeSeconds),
+            reps: null,
+            date: new Date(),
+            assignmentId: Number(req.params.assignmentId),
+          });
+        }
+      }
+
       res.json(fullLog);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -607,6 +643,225 @@ export async function registerRoutes(
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  // === RECURRING ASSIGNMENTS ===
+
+  app.get(api.recurringAssignments.list.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const list = await storage.getRecurringAssignments(userId);
+    res.json(list);
+  });
+
+  app.post(api.recurringAssignments.create.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    try {
+      const input = api.recurringAssignments.create.input.parse(req.body);
+
+      let athleteIds: string[] = [];
+      if (input.groupId) {
+        const group = await storage.getGroup(input.groupId);
+        if (!group) return res.status(404).json({ message: "Group not found" });
+        if (group.coachId !== userId) return res.status(403).json({ message: "Forbidden" });
+        athleteIds = await storage.getGroupMemberAthleteIds(input.groupId);
+        if (athleteIds.length === 0) return res.status(400).json({ message: "Group has no members" });
+      } else if (input.athleteIds && input.athleteIds.length > 0) {
+        athleteIds = input.athleteIds;
+      } else {
+        return res.status(400).json({ message: "Either athleteIds or groupId must be provided" });
+      }
+
+      for (const aid of athleteIds) {
+        const isPair = await storage.isCoachAthletePair(userId, aid);
+        if (!isPair) return res.status(403).json({ message: "Not connected to all athletes" });
+      }
+
+      const recurring = await storage.createRecurringAssignment({
+        coachId: userId,
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+        athleteIds: input.groupId ? [] : athleteIds,
+        groupId: input.groupId || null,
+        frequency: input.frequency,
+        daysOfWeek: input.daysOfWeek,
+        startDate: new Date(input.startDate),
+        endDate: new Date(input.endDate),
+      });
+
+      const startDate = new Date(input.startDate);
+      const endDate = new Date(input.endDate);
+      let current = new Date(startDate);
+      const generatedAssignments = [];
+
+      while (current <= endDate) {
+        const dayOfWeek = current.getDay();
+        if (input.daysOfWeek.includes(dayOfWeek)) {
+          const result = await storage.createAssignments({
+            coachId: userId,
+            athleteIds,
+            sourceType: input.sourceType,
+            sourceId: input.sourceId,
+            scheduledDate: new Date(current),
+          });
+          generatedAssignments.push(...result);
+        }
+        current.setDate(current.getDate() + 1);
+      }
+
+      res.status(201).json({ recurring, generatedCount: generatedAssignments.length });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete(api.recurringAssignments.delete.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const recurring = await storage.getRecurringAssignment(Number(req.params.id));
+    if (!recurring) return res.status(404).json({ message: "Not found" });
+    if (recurring.coachId !== userId) return res.status(403).json({ message: "Forbidden" });
+    const updated = await storage.deactivateRecurringAssignment(recurring.id);
+    res.json(updated);
+  });
+
+  // === WORKOUT COMMENTS ===
+
+  app.get(api.workoutComments.list.path, async (req, res) => {
+    const userId = requireAuth(req, res);
+    if (!userId) return;
+    const assignmentId = Number(req.params.assignmentId);
+    const comments = await storage.getWorkoutComments(assignmentId);
+    res.json(comments);
+  });
+
+  app.post(api.workoutComments.create.path, async (req, res) => {
+    const userId = requireAuth(req, res);
+    if (!userId) return;
+    try {
+      const input = api.workoutComments.create.input.parse(req.body);
+      const assignmentId = Number(req.params.assignmentId);
+      const comment = await storage.createWorkoutComment({
+        assignmentId,
+        authorId: userId,
+        content: input.content,
+      });
+      res.status(201).json(comment);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // === WELLNESS CHECK-INS ===
+
+  app.post(api.wellness.submit.path, async (req, res) => {
+    const userId = await requireRole(req, res, "ATHLETE");
+    if (!userId) return;
+    try {
+      const input = api.wellness.submit.input.parse(req.body);
+      const checkin = await storage.createWellnessCheckin({
+        athleteId: userId,
+        date: new Date(),
+        sleep: input.sleep,
+        soreness: input.soreness,
+        stress: input.stress,
+        mood: input.mood,
+        note: input.note || null,
+      });
+      res.status(201).json(checkin);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get(api.wellness.history.path, async (req, res) => {
+    const userId = await requireRole(req, res, "ATHLETE");
+    if (!userId) return;
+    const history = await storage.getAthleteWellness(userId);
+    res.json(history);
+  });
+
+  app.get(api.wellness.coachView.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const athleteId = req.params.id;
+    const isPair = await storage.isCoachAthletePair(userId, athleteId);
+    if (!isPair) return res.status(403).json({ message: "Not connected to this athlete" });
+    const history = await storage.getAthleteWellness(athleteId);
+    res.json(history);
+  });
+
+  // === PERSONAL RECORDS ===
+
+  app.get(api.personalRecords.athlete.path, async (req, res) => {
+    const userId = await requireRole(req, res, "ATHLETE");
+    if (!userId) return;
+    const prs = await storage.getAthletePRs(userId);
+    res.json(prs);
+  });
+
+  app.get(api.personalRecords.coachView.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const athleteId = req.params.id;
+    const isPair = await storage.isCoachAthletePair(userId, athleteId);
+    if (!isPair) return res.status(403).json({ message: "Not connected to this athlete" });
+    const prs = await storage.getAthletePRs(athleteId);
+    res.json(prs);
+  });
+
+  // === EXERCISE HISTORY ===
+
+  app.get(api.exerciseHistory.athlete.path, async (req, res) => {
+    const userId = await requireRole(req, res, "ATHLETE");
+    if (!userId) return;
+    const exerciseName = (req.query.name as string) || undefined;
+    const history = await storage.getExerciseHistory(userId, exerciseName);
+    res.json(history);
+  });
+
+  app.get(api.exerciseHistory.coachView.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const athleteId = req.params.id;
+    const isPair = await storage.isCoachAthletePair(userId, athleteId);
+    if (!isPair) return res.status(403).json({ message: "Not connected to this athlete" });
+    const exerciseName = (req.query.name as string) || undefined;
+    const history = await storage.getExerciseHistory(athleteId, exerciseName);
+    res.json(history);
+  });
+
+  // === COACH ATHLETE DETAIL ===
+
+  app.get(api.coachAthleteDetail.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const athleteId = req.params.id;
+    const isPair = await storage.isCoachAthletePair(userId, athleteId);
+    if (!isPair) return res.status(403).json({ message: "Not connected to this athlete" });
+    const athlete = await storage.getUserById(athleteId);
+    if (!athlete) return res.status(404).json({ message: "Athlete not found" });
+
+    const assignmentsList = await storage.getCoachAssignments(userId);
+    const athleteAssignments = assignmentsList.filter(a => a.athleteId === athleteId);
+    const recentAssignments = athleteAssignments.slice(0, 10);
+
+    const latestWellness = await storage.getLatestWellness(athleteId);
+    const prs = await storage.getAthletePRs(athleteId);
+
+    res.json({
+      athlete,
+      recentAssignments,
+      latestWellness,
+      prs: prs.slice(0, 20),
+    });
+  });
+
+  // === PR AUTO-DETECTION IN LOG ROUTE ===
+  // Enhance the existing log route to detect PRs after logging
 
   // === LEGACY ROUTES (keep for backward compat) ===
 
