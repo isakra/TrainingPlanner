@@ -79,11 +79,17 @@ export default function MessagesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedConvId, setSelectedConvId] = useState<number | null>(null);
+  const searchStr = useSearch();
+  const urlParams = new URLSearchParams(searchStr);
+  const convFromUrl = urlParams.get("conv");
+
+  const [selectedConvId, setSelectedConvId] = useState<number | null>(convFromUrl ? Number(convFromUrl) : null);
   const [messageInput, setMessageInput] = useState("");
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [groupTitle, setGroupTitle] = useState("");
+  const [newConvMode, setNewConvMode] = useState<"contacts" | "group">("contacts");
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const userId = user?.id || "";
 
@@ -100,6 +106,11 @@ export default function MessagesPage() {
   const { data: athleteCoaches = [] } = useQuery<any[]>({
     queryKey: ["/api/athlete/coaches"],
     enabled: user?.role === "ATHLETE",
+  });
+
+  const { data: coachGroups = [] } = useQuery<GroupWithMemberCount[]>({
+    queryKey: ["/api/coach/groups"],
+    enabled: user?.role === "COACH",
   });
 
   const { data: msgs = [], isLoading: msgsLoading } = useQuery<MessageWithSender[]>({
@@ -121,15 +132,22 @@ export default function MessagesPage() {
   });
 
   const createConvMutation = useMutation({
-    mutationFn: () => apiPost("/api/messages/conversations", {
-      participantIds: selectedParticipants,
-      isGroup: selectedParticipants.length > 1,
-      title: selectedParticipants.length > 1 ? groupTitle || undefined : undefined,
-    }),
+    mutationFn: () => {
+      if (newConvMode === "group" && selectedGroupId) {
+        return apiPost("/api/messages/conversations", { groupId: Number(selectedGroupId) });
+      }
+      return apiPost("/api/messages/conversations", {
+        participantIds: selectedParticipants,
+        isGroup: selectedParticipants.length > 1,
+        title: selectedParticipants.length > 1 ? groupTitle || undefined : undefined,
+      });
+    },
     onSuccess: (data: any) => {
       setShowNewDialog(false);
       setSelectedParticipants([]);
       setGroupTitle("");
+      setSelectedGroupId("");
+      setNewConvMode("contacts");
       queryClient.invalidateQueries({ queryKey: ["/api/messages/conversations"] });
       setSelectedConvId(data.id);
     },
@@ -169,12 +187,75 @@ export default function MessagesPage() {
                   <MessageSquarePlus className="w-5 h-5" />
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent aria-describedby={undefined}>
                 <DialogHeader>
                   <DialogTitle>New Conversation</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  {contactList.length === 0 ? (
+                  {user?.role === "COACH" && coachGroups.length > 0 && (
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={newConvMode === "contacts" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => { setNewConvMode("contacts"); setSelectedGroupId(""); }}
+                        data-testid="button-conv-mode-contacts"
+                      >
+                        <Users className="w-4 h-4" />
+                        Contacts
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={newConvMode === "group" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => { setNewConvMode("group"); setSelectedParticipants([]); }}
+                        data-testid="button-conv-mode-group"
+                      >
+                        <UsersRound className="w-4 h-4" />
+                        From Group
+                      </Button>
+                    </div>
+                  )}
+
+                  {newConvMode === "group" ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Select a Group</Label>
+                        <div className="space-y-1 max-h-60 overflow-y-auto">
+                          {coachGroups.filter(g => g.memberCount > 0).map((g) => (
+                            <div
+                              key={g.id}
+                              className={`flex items-center gap-3 p-2 rounded-md cursor-pointer ${
+                                selectedGroupId === String(g.id) ? "bg-primary/10 border border-primary/30" : "hover-elevate"
+                              }`}
+                              onClick={() => setSelectedGroupId(String(g.id))}
+                              data-testid={`group-option-${g.id}`}
+                            >
+                              <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                                <UsersRound className="w-4 h-4 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{g.name}</p>
+                                <p className="text-xs text-muted-foreground">{g.memberCount} athletes</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {coachGroups.filter(g => g.memberCount > 0).length === 0 && (
+                          <p className="text-sm text-muted-foreground">No groups with members yet.</p>
+                        )}
+                      </div>
+                      <Button
+                        className="w-full"
+                        disabled={!selectedGroupId || createConvMutation.isPending}
+                        onClick={() => createConvMutation.mutate()}
+                        data-testid="button-create-group-conversation"
+                      >
+                        {createConvMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UsersRound className="w-4 h-4" />}
+                        Start Group Chat
+                      </Button>
+                    </>
+                  ) : contactList.length === 0 ? (
                     <p className="text-sm text-muted-foreground" data-testid="text-no-contacts">
                       {user?.role === "COACH"
                         ? "Connect with athletes first from My Athletes page."

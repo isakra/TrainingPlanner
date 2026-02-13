@@ -34,7 +34,7 @@ Path aliases are configured:
 - `@shared/*` → `shared/*`
 - `@assets/*` → `attached_assets/*`
 
-Pages include: Dashboard, Exercises Library, Workouts (templates), Workout Detail, Training (assigned sessions), Session (active workout logging), Performance (analytics charts), Auth, Coach Athletes (manage connections), and Messages (in-app messaging).
+Pages include: Dashboard, Exercises Library, Workouts (templates), Workout Detail, Training (assigned sessions), Session (active workout logging), Performance (analytics charts), Auth, Coach Athletes (manage connections), Messages (in-app messaging), Coach Groups (create/manage teams), Coach Group Detail (members, assign to group, group chat), and Athlete Groups (view teams).
 
 All pages except Auth are protected routes that require authentication.
 
@@ -48,7 +48,10 @@ All pages except Auth are protected routes that require authentication.
 Key API endpoints:
 - `GET/POST /api/coach/athletes`, `POST /api/coach/athletes/connect`, `DELETE /api/coach/athletes/:athleteId` — Coach-athlete connections
 - `GET /api/athlete/coaches` — Athlete's connected coaches
-- `GET/POST /api/messages/conversations`, `GET/POST /api/messages/conversations/:id/messages` — Messaging system
+- `GET/POST /api/messages/conversations`, `GET/POST /api/messages/conversations/:id/messages` — Messaging system (supports groupId for group chats)
+- `GET/POST /api/coach/groups`, `GET/PUT/DELETE /api/coach/groups/:id` — Coach group CRUD
+- `POST /api/coach/groups/:id/members`, `DELETE /api/coach/groups/:id/members/:athleteId` — Group member management
+- `GET /api/athlete/groups` — Athlete's groups
 - `GET/POST /api/exercises` — Exercise library CRUD
 - `GET/POST /api/workouts` — Workout template CRUD
 - `GET /api/workouts/:id` — Workout detail with exercises
@@ -73,6 +76,8 @@ Database tables:
 - `assignments` — Assigns a workout to a user on a specific date, tracks completion
 - `performance_logs` — Actual performance data logged by athletes (exercise, weight, reps, date)
 - `coach_athletes` — Join table for coach-athlete relationships (coachId + athleteId, unique constraint)
+- `groups` — Coach-created groups/teams (name, description, coachId)
+- `group_members` — Group membership (groupId + athleteId, unique constraint)
 - `conversations` — Chat conversations (isGroup, title, lastMessageAt)
 - `conversation_participants` — Maps users to conversations (unique per user per conversation)
 - `messages` — Individual messages in conversations (senderId, content, createdAt)

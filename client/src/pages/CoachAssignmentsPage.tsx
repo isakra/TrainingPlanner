@@ -1,7 +1,7 @@
 import { Layout } from "@/components/Layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost } from "@/lib/api";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearch } from "wouter";
 import type { WorkoutTemplate, CustomWorkout, User, WorkoutAssignment, GroupWithMemberCount } from "@shared/schema";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
