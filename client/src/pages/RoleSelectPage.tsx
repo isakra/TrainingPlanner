@@ -14,7 +14,7 @@ export default function RoleSelectPage() {
             Choose Your Role
           </h1>
           <p className="text-muted-foreground text-lg">
-            How will you use TrainingPlaner?
+            How will you use TrainingPlanner?
           </p>
         </div>
 

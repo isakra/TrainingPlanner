@@ -56,7 +56,7 @@ export default function AuthPage() {
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-2">
             <h2 className="text-4xl font-display font-bold text-foreground uppercase tracking-wide">
-              Welcome to <span className="text-primary">TrainingPlaner</span>
+              Welcome to <span className="text-primary">TrainingPlanner</span>
             </h2>
             <p className="text-muted-foreground">
               Sign in to access your training dashboard
