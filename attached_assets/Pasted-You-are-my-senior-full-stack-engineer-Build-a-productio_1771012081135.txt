@@ -1,0 +1,184 @@
+You are my senior full-stack engineer. Build a production-ready MVP web app named **TrainingPlaner**.
+
+TrainingPlaner is similar to TeamBuildr, but with a key differentiator:
+➡️ a pre-made workout library that coaches can browse, clone, customize, and assign to athletes.
+
+I want clean, maintainable code and a fully working app end-to-end.
+
+APP IDENTITY (STRICT)
+- App name: TrainingPlaner
+- Use this name consistently in:
+  - Page titles
+  - Navbar/logo text
+  - README
+  - Metadata
+  - Seed data descriptions
+- Do NOT change the app name.
+
+STACK (STRICT — do not change)
+- Next.js (App Router) + TypeScript
+- Tailwind CSS
+- Backend: Next.js Route Handlers ONLY (app/api/**)
+- Database: PostgreSQL with Prisma ORM. If Postgres is unavailable, use SQLite with Prisma.
+- Auth: NextAuth (Credentials provider)
+- Validation: Zod for every API input and server action input
+- Access Control: role + ownership checks on every API route
+
+ROLES
+- COACH
+- ATHLETE
+
+CORE FEATURES (MVP)
+
+1) Authentication
+- Register + login pages.
+- NextAuth session-based auth.
+- Store passwords securely (bcrypt).
+- Seed demo users:
+  - coach@example.com / Password123!
+  - athlete@example.com / Password123!
+
+2) Pre-made Workout Template Library (key differentiator)
+- Coach can browse/search/filter templates.
+- Template fields:
+  title, description, tags[], difficulty, equipment[], estimatedDuration, structured blocks/exercises.
+- Structure:
+  - WorkoutTemplate
+  - TemplateBlock (Warmup/Strength/etc) with order
+  - TemplateExercise with order + prescriptionJson + notes
+- Coach can view template detail.
+- Coach can clone template → creates a CustomWorkout owned by that coach
+  (deep copy blocks + exercises so edits never affect the template).
+
+3) Custom Workouts
+- Coach can create a new custom workout from scratch.
+- Coach can edit custom workout (blocks + exercises).
+- Editing custom workouts must never affect templates.
+
+4) Assignments
+- Coach can assign either:
+  - a Template OR
+  - a CustomWorkout
+  to one or more athletes on a scheduled date.
+- Coach has Assignments page with completion status.
+- Athlete has My Workouts page with upcoming + completed workouts.
+
+5) Logging
+- Athlete opens an assigned workout and logs results per set where applicable + notes.
+- Athlete can mark workout as completed.
+- Coach can view athlete logs per assignment.
+
+NON-NEGOTIABLE ENGINEERING RULES
+- TypeScript everywhere. Avoid "any".
+- Zod validation on ALL request bodies and query params.
+- Proper HTTP error handling:
+  400 validation, 401 unauthorized, 403 forbidden, 404 not found.
+- Centralized auth + role helper utilities.
+- Prisma transactions where needed:
+  - cloning templates
+  - assigning to multiple athletes
+- Reusable service functions:
+  - cloneTemplateToCustomWorkout(templateId, coachId)
+  - createAssignments({...})
+  - upsertWorkoutLog(...)
+
+REQUIRED PAGES
+
+Public:
+- /
+- /auth/login
+- /auth/register
+
+Coach:
+- /coach/templates
+- /coach/templates/[id]
+- /coach/workouts/new
+- /coach/workouts/[id]/edit
+- /coach/assign
+- /coach/assignments
+- /coach/athletes/[id]
+
+Athlete:
+- /athlete/workouts
+- /athlete/workouts/[assignmentId]
+
+API ROUTES (minimum)
+
+Auth:
+- POST /api/auth/register
+- GET  /api/me
+
+Coach:
+- GET  /api/coach/templates
+- GET  /api/coach/templates/:id
+- POST /api/coach/templates/:id/clone
+- POST /api/coach/workouts
+- GET  /api/coach/workouts/:id
+- PUT  /api/coach/workouts/:id
+- POST /api/coach/assignments
+- GET  /api/coach/assignments
+
+Athlete:
+- GET  /api/athlete/workouts
+- GET  /api/athlete/workouts/:assignmentId
+- POST /api/athlete/workouts/:assignmentId/log
+- POST /api/athlete/workouts/:assignmentId/complete
+
+DATA MODEL (Prisma — required)
+
+- User: id, name, email, passwordHash, role
+- WorkoutTemplate: id, title, description, tags (String[]), difficulty, equipment (String[]), estimatedDuration, createdAt
+- TemplateBlock: id, templateId, title, order
+- TemplateExercise: id, blockId, name, order, prescriptionJson (Json), notes
+- CustomWorkout: id, coachId, title, description, tags (String[]), difficulty, equipment (String[]), estimatedDuration, createdAt
+- CustomBlock: id, customWorkoutId, title, order
+- CustomExercise: id, customBlockId, name, order, prescriptionJson (Json), notes
+- WorkoutAssignment: id, athleteId, coachId, scheduledDate, status (UPCOMING/COMPLETED), sourceType (TEMPLATE/CUSTOM), sourceId, createdAt
+- WorkoutLog: id, assignmentId (unique), athleteId, completedAt, overallNotes
+- SetLog: id, logId, exerciseName, setNumber, reps, weight, timeSeconds, distanceMeters, rpe, notes
+
+VALIDATION RULES
+- prescriptionJson validated with Zod.
+- Must support:
+  sets, reps, weight, rpe, timeSeconds, distanceMeters, restSeconds, tempo, percentage.
+- Logging schema must allow optional fields per exercise type.
+
+SEED DATA (MANDATORY)
+- At least 30 workout templates:
+  - Strength (upper/lower/full)
+  - Conditioning (EMOM/AMRAP/intervals)
+  - Running (easy/tempo/intervals)
+- Include tags + equipment arrays.
+- Seed demo users.
+
+DELIVERABLES
+- TrainingPlaner runs with ONE command.
+- README includes:
+  - setup steps
+  - environment variables
+  - prisma migrate + seed
+  - demo credentials
+  - how to run inside Replit
+
+WORKFLOW (follow strictly in order)
+
+1) Generate Next.js scaffold + Tailwind.
+2) Create Prisma schema + migrations + seed script.
+3) Implement NextAuth + role helpers.
+4) Implement API routes + services.
+5) Implement UI pages for coach and athlete flows.
+6) Ensure full end-to-end functionality.
+
+IMPORTANT RULES
+- Do NOT rename TrainingPlaner.
+- Do NOT change the stack.
+- Do NOT skip features.
+- If something is unavailable in Replit, choose the closest alternative and continue while keeping Prisma + NextAuth.
+
+Start by generating:
+- folder structure
+- Prisma schema
+- seed script outline
+- auth helper design
+
+Then proceed step-by-step until TrainingPlaner runs successfully.
