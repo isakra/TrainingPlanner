@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowLeft, CheckCircle, Dumbbell, Loader2, Save
+  ArrowLeft, CheckCircle, Dumbbell, Loader2, Save, Heart, Activity
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useBluetoothHeartRate } from "@/hooks/use-bluetooth";
@@ -89,10 +89,22 @@ export default function AthleteWorkoutSessionPage() {
     }
   }, [data, initialized]);
 
+  const buildHeartRatePayload = () => {
+    if (!bt.isConnected && bt.sessionHeartRates.length === 0) return undefined;
+    if (bt.sessionHeartRates.length === 0) return undefined;
+    return {
+      avgHeartRate: bt.avgHeartRate,
+      maxHeartRate: bt.maxHeartRate,
+      minHeartRate: bt.minHeartRate,
+      deviceName: bt.deviceName,
+    };
+  };
+
   const saveMutation = useMutation({
     mutationFn: () => apiPost(`/api/athlete/workouts/${assignmentId}/log`, {
       overallNotes,
       sets: setEntries,
+      heartRate: buildHeartRatePayload(),
     }),
     onSuccess: () => {
       toast({ title: "Saved", description: "Progress saved." });
@@ -108,6 +120,7 @@ export default function AthleteWorkoutSessionPage() {
       await apiPost(`/api/athlete/workouts/${assignmentId}/log`, {
         overallNotes,
         sets: setEntries,
+        heartRate: buildHeartRatePayload(),
       });
       return apiPost(`/api/athlete/workouts/${assignmentId}/complete`);
     },
@@ -195,6 +208,43 @@ export default function AthleteWorkoutSessionPage() {
 
       <BluetoothErrorBanner bt={bt} />
       <BluetoothLiveCard bt={bt} />
+
+      {data?.log?.avgHeartRate && (
+        <Card data-testid="card-heart-rate-summary">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-red-400" />
+                <span className="text-sm font-medium">Heart Rate Summary</span>
+              </div>
+              <div className="flex items-center gap-4 text-sm ml-auto">
+                <div className="text-center" data-testid="text-saved-avg-hr">
+                  <div className="text-xs text-muted-foreground">Avg</div>
+                  <div className="font-semibold tabular-nums">{data.log.avgHeartRate} bpm</div>
+                </div>
+                {data.log.maxHeartRate && (
+                  <div className="text-center" data-testid="text-saved-max-hr">
+                    <div className="text-xs text-muted-foreground">Max</div>
+                    <div className="font-semibold tabular-nums">{data.log.maxHeartRate} bpm</div>
+                  </div>
+                )}
+                {data.log.minHeartRate && (
+                  <div className="text-center" data-testid="text-saved-min-hr">
+                    <div className="text-xs text-muted-foreground">Min</div>
+                    <div className="font-semibold tabular-nums">{data.log.minHeartRate} bpm</div>
+                  </div>
+                )}
+              </div>
+              {data.log.deviceName && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Activity className="w-3 h-3" />
+                  {data.log.deviceName}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-6">
         {exerciseNames.map(exName => {
