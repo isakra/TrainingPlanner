@@ -50,7 +50,7 @@ export default function RoleSelectPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <KeyRound className="w-4 h-4" />
-                    <span>Enter your invite code</span>
+                    <span>Enter your invite code (existing coaches can skip)</span>
                   </div>
                   <Input
                     placeholder="e.g. ABC12345"
@@ -66,7 +66,7 @@ export default function RoleSelectPage() {
                   <Button
                     className="w-full"
                     onClick={() => setRole({ role: "COACH", inviteCode })}
-                    disabled={isSettingRole || !inviteCode.trim()}
+                    disabled={isSettingRole}
                     data-testid="button-select-coach"
                   >
                     {isSettingRole ? "Verifying..." : "Continue as Coach"}
