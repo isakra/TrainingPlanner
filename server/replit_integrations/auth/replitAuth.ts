@@ -51,13 +51,17 @@ function updateUserSession(
 }
 
 async function upsertUser(claims: any) {
-  await authStorage.upsertUser({
+  console.log("[AUTH] upsertUser called with sub:", claims["sub"], "email:", claims["email"]);
+  const existingUser = await authStorage.getUser(claims["sub"]);
+  console.log("[AUTH] existing user role before upsert:", existingUser?.role);
+  const result = await authStorage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   });
+  console.log("[AUTH] user after upsert, role:", result.role);
 }
 
 export async function setupAuth(app: Express) {

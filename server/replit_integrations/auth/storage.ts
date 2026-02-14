@@ -16,16 +16,23 @@ class AuthStorage implements IAuthStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    const safeValues = {
+      id: userData.id,
+      email: userData.email,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      profileImageUrl: userData.profileImageUrl,
+    };
     const [user] = await db
       .insert(users)
-      .values(userData)
+      .values(safeValues)
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
+          email: safeValues.email,
+          firstName: safeValues.firstName,
+          lastName: safeValues.lastName,
+          profileImageUrl: safeValues.profileImageUrl,
           updatedAt: new Date(),
         },
       })

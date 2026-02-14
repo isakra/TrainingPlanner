@@ -42,8 +42,10 @@ export async function registerRoutes(
 
   app.get(api.me.path, async (req, res) => {
     const userId = getUserId(req);
+    console.log("[AUTH] /api/auth/user called, userId from session:", userId);
     if (!userId) return res.status(401).json({ message: "Not authenticated" });
     const user = await storage.getUserById(userId);
+    console.log("[AUTH] /api/auth/user user from DB:", user?.id, "role:", user?.role, "email:", user?.email);
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
   });
@@ -53,20 +55,33 @@ export async function registerRoutes(
     if (!userId) return;
     try {
       const { role, inviteCode } = api.setRole.input.parse(req.body);
+      console.log("[AUTH] setRole called, userId:", userId, "role:", role, "inviteCode:", inviteCode);
 
       if (role === "COACH") {
         const user = await storage.getUserById(userId);
+        console.log("[AUTH] setRole user from DB:", user?.id, "role:", user?.role, "email:", user?.email);
         if (user?.role === "COACH") {
+          console.log("[AUTH] user already COACH, returning");
           return res.json(user);
         }
+
+        const FOUNDER_EMAILS = ["isakrafnsson@gmail.com"];
+        if (user && FOUNDER_EMAILS.includes(user.email || "")) {
+          console.log("[AUTH] Founder email recognized, granting COACH");
+          const updated = await storage.updateUserRole(userId, role);
+          return res.json(updated);
+        }
+
         const existingUsed = await storage.getUsedInviteCodeByUser(userId);
         const createdCodes = await storage.getInviteCodesByCoach(userId);
+        console.log("[AUTH] existingUsed:", !!existingUsed, "createdCodes:", createdCodes.length);
         if (existingUsed || createdCodes.length > 0) {
           const updated = await storage.updateUserRole(userId, role);
           return res.json(updated);
         }
 
         if (!inviteCode) {
+          console.log("[AUTH] No invite code provided, rejecting");
           return res.status(403).json({ message: "An invite code is required to become a coach." });
         }
         const invite = await storage.getInviteCode(inviteCode);
