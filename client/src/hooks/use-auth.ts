@@ -53,6 +53,20 @@ export function useAuth() {
     },
   });
 
+  const clearRoleMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/me/role/clear", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to clear role");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+  });
+
   return {
     user,
     isLoading,
@@ -64,5 +78,7 @@ export function useAuth() {
     isLoggingOut: logoutMutation.isPending,
     setRole: setRoleMutation.mutate,
     isSettingRole: setRoleMutation.isPending,
+    clearRole: clearRoleMutation.mutate,
+    isClearingRole: clearRoleMutation.isPending,
   };
 }

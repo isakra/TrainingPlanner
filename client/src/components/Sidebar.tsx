@@ -14,6 +14,7 @@ import {
   UsersRound,
   Repeat,
   Heart,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 
 export function Sidebar() {
   const [location] = useLocation();
-  const { user, logout, isCoach, isAthlete } = useAuth();
+  const { user, logout, isCoach, isAthlete, clearRole } = useAuth();
 
   const coachItems = [
     { label: "Dashboard", icon: LayoutDashboard, href: "/" },
@@ -104,14 +105,24 @@ export function Sidebar() {
             </div>
           </div>
         </div>
-        <button
-          onClick={() => logout()}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-destructive bg-destructive/10 hover-elevate transition-all duration-200"
-          data-testid="button-logout"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+        <div className="space-y-2">
+          <button
+            onClick={() => clearRole()}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-muted-foreground bg-muted/50 hover-elevate transition-all duration-200"
+            data-testid="button-switch-role"
+          >
+            <ArrowLeftRight className="w-4 h-4" />
+            Switch Role
+          </button>
+          <button
+            onClick={() => logout()}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-destructive bg-destructive/10 hover-elevate transition-all duration-200"
+            data-testid="button-logout"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -61,6 +61,17 @@ export async function registerRoutes(
     }
   });
 
+  app.post(api.clearRole.path, async (req, res) => {
+    const userId = requireAuth(req, res);
+    if (!userId) return;
+    try {
+      const updated = await storage.updateUserRole(userId, null);
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get(api.athletes.list.path, async (req, res) => {
     const userId = await requireRole(req, res, "COACH");
     if (!userId) return;

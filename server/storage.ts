@@ -36,7 +36,7 @@ import { eq, and, desc, sql, inArray, asc } from "drizzle-orm";
 export interface IStorage {
   // Users
   getUserById(id: string): Promise<User | undefined>;
-  updateUserRole(id: string, role: string): Promise<User>;
+  updateUserRole(id: string, role: string | null): Promise<User>;
   getAthletes(): Promise<User[]>;
 
   // Exercises
@@ -146,7 +146,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserRole(id: string, role: string): Promise<User> {
+  async updateUserRole(id: string, role: string | null): Promise<User> {
     const [updated] = await db.update(users).set({ role }).where(eq(users.id, id)).returning();
     return updated;
   }

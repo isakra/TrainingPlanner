@@ -27,6 +27,10 @@ export const api = {
     path: '/api/me/role' as const,
     input: z.object({ role: z.enum(["COACH", "ATHLETE"]) }),
   },
+  clearRole: {
+    method: 'POST' as const,
+    path: '/api/me/role/clear' as const,
+  },
   athletes: {
     list: {
       method: 'GET' as const,
