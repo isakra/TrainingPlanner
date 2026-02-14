@@ -25,11 +25,21 @@ export const api = {
   setRole: {
     method: 'POST' as const,
     path: '/api/me/role' as const,
-    input: z.object({ role: z.enum(["COACH", "ATHLETE"]) }),
+    input: z.object({ role: z.enum(["COACH", "ATHLETE"]), inviteCode: z.string().optional() }),
   },
   clearRole: {
     method: 'POST' as const,
     path: '/api/me/role/clear' as const,
+  },
+  inviteCodes: {
+    create: {
+      method: 'POST' as const,
+      path: '/api/coach/invite-codes' as const,
+    },
+    list: {
+      method: 'GET' as const,
+      path: '/api/coach/invite-codes' as const,
+    },
   },
   athletes: {
     list: {

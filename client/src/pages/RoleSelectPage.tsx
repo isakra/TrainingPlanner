@@ -1,10 +1,16 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Users, Dumbbell } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Users, Dumbbell, KeyRound } from "lucide-react";
 
 export default function RoleSelectPage() {
-  const { setRole, isSettingRole } = useAuth();
+  const { setRole, isSettingRole, setRoleError } = useAuth();
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlInvite = urlParams.get("invite") || localStorage.getItem("pendingInviteCode") || "";
+  const [inviteCode, setInviteCode] = useState(urlInvite);
+  const [showCoachForm, setShowCoachForm] = useState(!!urlInvite);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-8">
@@ -30,14 +36,43 @@ export default function RoleSelectPage() {
               <p className="text-muted-foreground">
                 Create workout programs, assign them to athletes, and track their progress.
               </p>
-              <Button
-                className="w-full"
-                onClick={() => setRole("COACH")}
-                disabled={isSettingRole}
-                data-testid="button-select-coach"
-              >
-                {isSettingRole ? "Setting up..." : "I'm a Coach"}
-              </Button>
+
+              {!showCoachForm ? (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => setShowCoachForm(true)}
+                  data-testid="button-show-coach-form"
+                >
+                  I'm a Coach
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <KeyRound className="w-4 h-4" />
+                    <span>Enter your invite code</span>
+                  </div>
+                  <Input
+                    placeholder="e.g. ABC12345"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                    data-testid="input-invite-code"
+                  />
+                  {setRoleError && (
+                    <p className="text-sm text-destructive" data-testid="text-invite-error">
+                      {setRoleError}
+                    </p>
+                  )}
+                  <Button
+                    className="w-full"
+                    onClick={() => setRole({ role: "COACH", inviteCode })}
+                    disabled={isSettingRole || !inviteCode.trim()}
+                    data-testid="button-select-coach"
+                  >
+                    {isSettingRole ? "Verifying..." : "Continue as Coach"}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -54,7 +89,7 @@ export default function RoleSelectPage() {
               </p>
               <Button
                 className="w-full"
-                onClick={() => setRole("ATHLETE")}
+                onClick={() => setRole({ role: "ATHLETE" })}
                 disabled={isSettingRole}
                 data-testid="button-select-athlete"
               >

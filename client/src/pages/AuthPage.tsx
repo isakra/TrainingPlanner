@@ -6,6 +6,12 @@ import { Loader2, ArrowRight } from "lucide-react";
 export default function AuthPage() {
   const { user, isLoading } = useAuth();
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const inviteParam = urlParams.get("invite");
+  if (inviteParam) {
+    localStorage.setItem("pendingInviteCode", inviteParam);
+  }
+
   if (isLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background text-primary">

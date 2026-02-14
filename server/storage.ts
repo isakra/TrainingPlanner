@@ -8,6 +8,7 @@ import {
   groups, groupMembers,
   users,
   recurringAssignments, personalRecords, workoutComments, wellnessCheckins,
+  coachInviteCodes, type CoachInviteCode,
   type Exercise, type InsertExercise,
   type Workout, type InsertWorkout,
   type WorkoutExercise, type InsertWorkoutExercise,
@@ -38,6 +39,13 @@ export interface IStorage {
   getUserById(id: string): Promise<User | undefined>;
   updateUserRole(id: string, role: string | null): Promise<User>;
   getAthletes(): Promise<User[]>;
+
+  // Coach Invite Codes
+  createInviteCode(code: string, createdBy: string): Promise<CoachInviteCode>;
+  getInviteCode(code: string): Promise<CoachInviteCode | undefined>;
+  useInviteCode(code: string, usedBy: string): Promise<CoachInviteCode>;
+  getInviteCodesByCoach(coachId: string): Promise<CoachInviteCode[]>;
+  getUsedInviteCodeByUser(userId: string): Promise<CoachInviteCode | undefined>;
 
   // Exercises
   getExercises(): Promise<Exercise[]>;
@@ -153,6 +161,38 @@ export class DatabaseStorage implements IStorage {
 
   async getAthletes(): Promise<User[]> {
     return await db.select().from(users).where(eq(users.role, "ATHLETE"));
+  }
+
+  // Coach Invite Codes
+  async createInviteCode(code: string, createdBy: string): Promise<CoachInviteCode> {
+    const [invite] = await db.insert(coachInviteCodes).values({ code, createdBy }).returning();
+    return invite;
+  }
+
+  async getInviteCode(code: string): Promise<CoachInviteCode | undefined> {
+    const [invite] = await db.select().from(coachInviteCodes).where(eq(coachInviteCodes.code, code)).limit(1);
+    return invite;
+  }
+
+  async useInviteCode(code: string, usedBy: string): Promise<CoachInviteCode> {
+    const [updated] = await db.update(coachInviteCodes)
+      .set({ usedBy, usedAt: new Date() })
+      .where(eq(coachInviteCodes.code, code))
+      .returning();
+    return updated;
+  }
+
+  async getInviteCodesByCoach(coachId: string): Promise<CoachInviteCode[]> {
+    return await db.select().from(coachInviteCodes)
+      .where(eq(coachInviteCodes.createdBy, coachId))
+      .orderBy(desc(coachInviteCodes.createdAt));
+  }
+
+  async getUsedInviteCodeByUser(userId: string): Promise<CoachInviteCode | undefined> {
+    const [invite] = await db.select().from(coachInviteCodes)
+      .where(eq(coachInviteCodes.usedBy, userId))
+      .limit(1);
+    return invite;
   }
 
   // Exercises

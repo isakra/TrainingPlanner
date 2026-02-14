@@ -15,6 +15,7 @@ import {
   Repeat,
   Heart,
   ArrowLeftRight,
+  KeyRound,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,6 +33,7 @@ export function Sidebar() {
     { label: "Groups", icon: UsersRound, href: "/coach/groups" },
     { label: "Assignments", icon: Send, href: "/coach/assignments" },
     { label: "Recurring", icon: Repeat, href: "/coach/recurring" },
+    { label: "Invites", icon: KeyRound, href: "/coach/invites" },
     { label: "Messages", icon: MessageSquare, href: "/messages" },
     { label: "Exercises", icon: Dumbbell, href: "/exercises" },
   ];

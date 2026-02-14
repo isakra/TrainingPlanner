@@ -22,6 +22,7 @@ import AthleteWorkoutSessionPage from "@/pages/AthleteWorkoutSessionPage";
 import AthleteGroupsPage from "@/pages/AthleteGroupsPage";
 import AthletePRsPage from "@/pages/AthletePRsPage";
 import CoachRecurringPage from "@/pages/CoachRecurringPage";
+import CoachInvitesPage from "@/pages/CoachInvitesPage";
 import MessagesPage from "@/pages/MessagesPage";
 import WellnessPage from "@/pages/WellnessPage";
 import { Loader2 } from "lucide-react";
@@ -74,6 +75,7 @@ function Router() {
       <Route path="/coach/groups" component={() => <ProtectedRoute component={CoachGroupsPage} requiredRole="COACH" />} />
       <Route path="/coach/assignments" component={() => <ProtectedRoute component={CoachAssignmentsPage} requiredRole="COACH" />} />
       <Route path="/coach/recurring" component={() => <ProtectedRoute component={CoachRecurringPage} requiredRole="COACH" />} />
+      <Route path="/coach/invites" component={() => <ProtectedRoute component={CoachInvitesPage} requiredRole="COACH" />} />
       
       {/* Athlete Routes */}
       <Route path="/athlete/workouts" component={() => <ProtectedRoute component={AthleteWorkoutsPage} requiredRole="ATHLETE" />} />

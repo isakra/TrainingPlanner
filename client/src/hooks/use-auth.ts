@@ -38,17 +38,21 @@ export function useAuth() {
   });
 
   const setRoleMutation = useMutation({
-    mutationFn: async (role: "COACH" | "ATHLETE") => {
+    mutationFn: async ({ role, inviteCode }: { role: "COACH" | "ATHLETE"; inviteCode?: string }) => {
       const res = await fetch("/api/me/role", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify({ role, inviteCode }),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to set role");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ message: "Failed to set role" }));
+        throw new Error(body.message || "Failed to set role");
+      }
       return res.json();
     },
     onSuccess: () => {
+      localStorage.removeItem("pendingInviteCode");
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     },
   });
@@ -78,6 +82,7 @@ export function useAuth() {
     isLoggingOut: logoutMutation.isPending,
     setRole: setRoleMutation.mutate,
     isSettingRole: setRoleMutation.isPending,
+    setRoleError: setRoleMutation.error?.message || null,
     clearRole: clearRoleMutation.mutate,
     isClearingRole: clearRoleMutation.isPending,
   };

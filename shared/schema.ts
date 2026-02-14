@@ -267,6 +267,17 @@ export const wellnessCheckins = pgTable("wellness_checkins", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === COACH INVITE CODES ===
+
+export const coachInviteCodes = pgTable("coach_invite_codes", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  createdBy: text("created_by").notNull(),
+  usedBy: text("used_by"),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === PRESCRIPTION JSON SCHEMA ===
 
 export const prescriptionSchema = z.object({
@@ -380,6 +391,8 @@ export type WellnessCheckin = typeof wellnessCheckins.$inferSelect;
 export type InsertWellnessCheckin = z.infer<typeof insertWellnessCheckinSchema>;
 
 export type WorkoutCommentWithAuthor = WorkoutComment & { author: User };
+
+export type CoachInviteCode = typeof coachInviteCodes.$inferSelect;
 
 export type Workout = typeof workouts.$inferSelect;
 export type InsertWorkout = z.infer<typeof insertWorkoutSchema>;

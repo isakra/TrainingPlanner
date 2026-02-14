@@ -52,7 +52,33 @@ export async function registerRoutes(
     const userId = requireAuth(req, res);
     if (!userId) return;
     try {
-      const { role } = api.setRole.input.parse(req.body);
+      const { role, inviteCode } = api.setRole.input.parse(req.body);
+
+      if (role === "COACH") {
+        const user = await storage.getUserById(userId);
+        if (user?.role === "COACH") {
+          return res.json(user);
+        }
+        const existingUsed = await storage.getUsedInviteCodeByUser(userId);
+        const createdCodes = await storage.getInviteCodesByCoach(userId);
+        if (existingUsed || createdCodes.length > 0) {
+          const updated = await storage.updateUserRole(userId, role);
+          return res.json(updated);
+        }
+
+        if (!inviteCode) {
+          return res.status(403).json({ message: "An invite code is required to become a coach." });
+        }
+        const invite = await storage.getInviteCode(inviteCode);
+        if (!invite) {
+          return res.status(403).json({ message: "Invalid invite code." });
+        }
+        if (invite.usedBy) {
+          return res.status(403).json({ message: "This invite code has already been used." });
+        }
+        await storage.useInviteCode(inviteCode, userId);
+      }
+
       const updated = await storage.updateUserRole(userId, role);
       res.json(updated);
     } catch (err) {
@@ -67,6 +93,32 @@ export async function registerRoutes(
     try {
       const updated = await storage.updateUserRole(userId, null);
       res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // === COACH INVITE CODES ===
+
+  app.post(api.inviteCodes.create.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    try {
+      const { randomBytes } = await import("crypto");
+      const code = randomBytes(8).toString("hex").toUpperCase();
+      const invite = await storage.createInviteCode(code, userId);
+      res.json(invite);
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get(api.inviteCodes.list.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    try {
+      const codes = await storage.getInviteCodesByCoach(userId);
+      res.json(codes);
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
     }
