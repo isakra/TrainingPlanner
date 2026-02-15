@@ -468,6 +468,52 @@ export async function registerRoutes(
     }
   });
 
+  app.put(api.coachAssignments.update.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    try {
+      const assignmentId = Number(req.params.id);
+      const existing = await storage.getAssignmentById(assignmentId);
+      if (!existing) return res.status(404).json({ message: "Assignment not found" });
+      if (existing.coachId !== userId) return res.status(403).json({ message: "Forbidden" });
+      if (existing.status === "COMPLETED") return res.status(400).json({ message: "Cannot edit a completed assignment" });
+
+      const input = api.coachAssignments.update.input.parse(req.body);
+
+      if ((input.sourceType !== undefined) !== (input.sourceId !== undefined)) {
+        return res.status(400).json({ message: "sourceType and sourceId must be provided together" });
+      }
+
+      const updateData: any = {};
+      if (input.sourceType !== undefined && input.sourceId !== undefined) {
+        updateData.sourceType = input.sourceType;
+        updateData.sourceId = input.sourceId;
+      }
+      if (input.scheduledDate !== undefined) updateData.scheduledDate = new Date(input.scheduledDate);
+
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No fields to update" });
+      }
+
+      const updated = await storage.updateAssignment(assignmentId, updateData);
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete(api.coachAssignments.delete.path, async (req, res) => {
+    const userId = await requireRole(req, res, "COACH");
+    if (!userId) return;
+    const assignmentId = Number(req.params.id);
+    const existing = await storage.getAssignmentById(assignmentId);
+    if (!existing) return res.status(404).json({ message: "Assignment not found" });
+    if (existing.coachId !== userId) return res.status(403).json({ message: "Forbidden" });
+    await storage.deleteAssignment(assignmentId);
+    res.json({ success: true });
+  });
+
   app.get(api.coachAthleteLog.path, async (req, res) => {
     const userId = await requireRole(req, res, "COACH");
     if (!userId) return;

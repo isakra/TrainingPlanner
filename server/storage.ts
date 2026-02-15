@@ -79,6 +79,9 @@ export interface IStorage {
   getAthleteAssignments(athleteId: string): Promise<(WorkoutAssignment & { workoutTitle: string; coachName: string })[]>;
   createAssignments(data: { coachId: string; athleteIds: string[]; sourceType: string; sourceId: number; scheduledDate: Date }): Promise<WorkoutAssignment[]>;
   completeAssignment(id: number): Promise<WorkoutAssignment>;
+  updateAssignment(id: number, data: { sourceType?: string; sourceId?: number; scheduledDate?: Date }): Promise<WorkoutAssignment>;
+  deleteAssignment(id: number): Promise<void>;
+  getAssignmentById(id: number): Promise<WorkoutAssignment | undefined>;
 
   // Logging
   getWorkoutLog(assignmentId: number): Promise<WorkoutLogWithSets | undefined>;
@@ -438,6 +441,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(workoutAssignments.id, id))
       .returning();
     return updated;
+  }
+
+  async updateAssignment(id: number, data: { sourceType?: string; sourceId?: number; scheduledDate?: Date }): Promise<WorkoutAssignment> {
+    const setObj: any = {};
+    if (data.sourceType !== undefined) setObj.sourceType = data.sourceType;
+    if (data.sourceId !== undefined) setObj.sourceId = data.sourceId;
+    if (data.scheduledDate !== undefined) setObj.scheduledDate = data.scheduledDate;
+    const [updated] = await db.update(workoutAssignments)
+      .set(setObj)
+      .where(eq(workoutAssignments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAssignment(id: number): Promise<void> {
+    await db.delete(workoutComments).where(eq(workoutComments.assignmentId, id));
+    const logs = await db.select().from(workoutLogs).where(eq(workoutLogs.assignmentId, id));
+    for (const log of logs) {
+      await db.delete(setLogs).where(eq(setLogs.logId, log.id));
+    }
+    await db.delete(workoutLogs).where(eq(workoutLogs.assignmentId, id));
+    await db.delete(workoutAssignments).where(eq(workoutAssignments.id, id));
+  }
+
+  async getAssignmentById(id: number): Promise<WorkoutAssignment | undefined> {
+    const [result] = await db.select().from(workoutAssignments).where(eq(workoutAssignments.id, id)).limit(1);
+    return result;
   }
 
   // Logging

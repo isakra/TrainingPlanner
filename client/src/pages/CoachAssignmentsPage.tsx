@@ -1,6 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
 import { useState } from "react";
 import { useSearch } from "wouter";
 import type { WorkoutTemplate, CustomWorkout, User, WorkoutAssignment, GroupWithMemberCount } from "@shared/schema";
@@ -16,7 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import {
-  Plus, Calendar, CheckCircle, Clock, Users, Eye
+  Plus, Calendar, CheckCircle, Clock, Users, Eye, Pencil, Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -64,6 +64,10 @@ export default function CoachAssignmentsPage() {
   const [sourceId, setSourceId] = useState<string>("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [viewLogId, setViewLogId] = useState<number | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<EnrichedAssignment | null>(null);
+  const [editSourceType, setEditSourceType] = useState<"TEMPLATE" | "CUSTOM">("TEMPLATE");
+  const [editSourceId, setEditSourceId] = useState<string>("");
+  const [editScheduledDate, setEditScheduledDate] = useState("");
 
   const { data: logDetail } = useQuery({
     queryKey: ["/api/coach/assignments", viewLogId, "log"],
@@ -100,6 +104,49 @@ export default function CoachAssignmentsPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (data: { id: number; sourceType?: string; sourceId?: number; scheduledDate?: string }) => {
+      const { id: assignmentId, ...body } = data;
+      return apiPut(`/api/coach/assignments/${assignmentId}`, body);
+    },
+    onSuccess: () => {
+      toast({ title: "Updated", description: "Assignment updated successfully." });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/assignments"] });
+      setEditingAssignment(null);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiDelete(`/api/coach/assignments/${id}`),
+    onSuccess: () => {
+      toast({ title: "Deleted", description: "Assignment removed." });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/assignments"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const openEditDialog = (assignment: EnrichedAssignment) => {
+    setEditingAssignment(assignment);
+    setEditSourceType(assignment.sourceType as "TEMPLATE" | "CUSTOM");
+    setEditSourceId(String(assignment.sourceId));
+    setEditScheduledDate(format(new Date(assignment.scheduledDate), "yyyy-MM-dd"));
+  };
+
+  const handleUpdate = () => {
+    if (!editingAssignment) return;
+    updateMutation.mutate({
+      id: editingAssignment.id,
+      sourceType: editSourceType,
+      sourceId: Number(editSourceId),
+      scheduledDate: editScheduledDate,
+    });
+  };
+
   const toggleAthlete = (id: string) => {
     setSelectedAthletes(prev =>
       prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
@@ -110,6 +157,10 @@ export default function CoachAssignmentsPage() {
   const completedAssignments = (assignmentsList || []).filter(a => a.status === "COMPLETED");
 
   const workoutOptions = sourceType === "TEMPLATE"
+    ? (templates || []).map(t => ({ id: String(t.id), label: t.title }))
+    : (customWorkouts || []).map(w => ({ id: String(w.id), label: w.title }));
+
+  const editWorkoutOptions = editSourceType === "TEMPLATE"
     ? (templates || []).map(t => ({ id: String(t.id), label: t.title }))
     : (customWorkouts || []).map(w => ({ id: String(w.id), label: w.title }));
 
@@ -286,7 +337,25 @@ export default function CoachAssignmentsPage() {
                       {format(new Date(a.scheduledDate), "MMM d, yyyy")}
                     </p>
                   </div>
-                  <Badge variant="secondary" className="no-default-active-elevate">Upcoming</Badge>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => openEditDialog(a)}
+                      data-testid={`button-edit-assignment-${a.id}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => deleteMutation.mutate(a.id)}
+                      data-testid={`button-delete-assignment-${a.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                    <Badge variant="secondary" className="no-default-active-elevate">Upcoming</Badge>
+                  </div>
                 </Card>
               ))}
             </div>
@@ -359,6 +428,64 @@ export default function CoachAssignmentsPage() {
           ) : (
             <p className="text-sm text-muted-foreground">No log available.</p>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingAssignment} onOpenChange={(open) => !open && setEditingAssignment(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Assignment</DialogTitle>
+            <DialogDescription>
+              Change the workout or scheduled date for {editingAssignment?.athleteName}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>Source</Label>
+              <Select value={editSourceType} onValueChange={(v) => { setEditSourceType(v as any); setEditSourceId(""); }}>
+                <SelectTrigger data-testid="select-edit-source-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TEMPLATE">Template</SelectItem>
+                  <SelectItem value="CUSTOM">My Workout</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Workout</Label>
+              <Select value={editSourceId} onValueChange={setEditSourceId}>
+                <SelectTrigger data-testid="select-edit-workout">
+                  <SelectValue placeholder="Select a workout" />
+                </SelectTrigger>
+                <SelectContent>
+                  {editWorkoutOptions.map(w => (
+                    <SelectItem key={w.id} value={w.id}>{w.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Scheduled Date</Label>
+              <Input
+                type="date"
+                value={editScheduledDate}
+                onChange={(e) => setEditScheduledDate(e.target.value)}
+                data-testid="input-edit-scheduled-date"
+              />
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={handleUpdate}
+              disabled={updateMutation.isPending || !editSourceId || !editScheduledDate}
+              data-testid="button-submit-edit"
+            >
+              {updateMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </Layout>

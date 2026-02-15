@@ -159,6 +159,19 @@ export const api = {
         { message: "Either athleteIds or groupId must be provided" }
       ),
     },
+    update: {
+      method: 'PUT' as const,
+      path: '/api/coach/assignments/:id' as const,
+      input: z.object({
+        sourceType: z.enum(["TEMPLATE", "CUSTOM"]).optional(),
+        sourceId: z.number().optional(),
+        scheduledDate: z.string().optional(),
+      }),
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/coach/assignments/:id' as const,
+    },
   },
   athleteAssignments: {
     list: {
