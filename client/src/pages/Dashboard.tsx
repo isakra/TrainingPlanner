@@ -223,7 +223,7 @@ function CoachDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-8">
         <Link href="/coach/templates" data-testid="link-browse-templates">
           <Card className="hover-elevate cursor-pointer">
             <CardContent className="p-6 text-center">

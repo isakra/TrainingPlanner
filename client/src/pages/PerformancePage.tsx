@@ -79,7 +79,7 @@ function HistoryChart({ exerciseId }: { exerciseId: number }) {
 
   return (
     <div className="space-y-6">
-       <div className="grid grid-cols-2 gap-4">
+       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="bg-primary/10 border-primary/20">
              <CardContent className="p-4 flex items-center gap-4">
                 <div className="p-2 bg-primary text-primary-foreground rounded-lg">

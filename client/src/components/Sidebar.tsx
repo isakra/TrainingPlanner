@@ -1,10 +1,10 @@
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
   Dumbbell, 
   Calendar, 
-  Activity, 
   LogOut, 
   ClipboardList,
   Trophy,
@@ -16,14 +16,69 @@ import {
   Heart,
   ArrowLeftRight,
   KeyRound,
+  Menu,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+interface SidebarContextType {
+  isOpen: boolean;
+  toggle: () => void;
+  close: () => void;
+}
+
+const SidebarContext = createContext<SidebarContextType>({
+  isOpen: false,
+  toggle: () => {},
+  close: () => {},
+});
+
+export function useSidebar() {
+  return useContext(SidebarContext);
+}
+
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const toggle = useCallback(() => setIsOpen((v) => !v), []);
+  const close = useCallback(() => setIsOpen(false), []);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  return (
+    <SidebarContext.Provider value={{ isOpen, toggle, close }}>
+      {children}
+    </SidebarContext.Provider>
+  );
+}
+
+export function MobileHeader() {
+  const { toggle } = useSidebar();
+  return (
+    <div className="lg:hidden sticky top-0 z-40 flex items-center gap-3 px-4 py-3 bg-card border-b border-border">
+      <Button size="icon" variant="ghost" onClick={toggle} data-testid="button-mobile-menu">
+        <Menu className="w-5 h-5" />
+      </Button>
+      <h1 className="text-lg font-display font-bold text-primary tracking-wider italic" data-testid="text-app-name-mobile">
+        TRAINING<span className="text-foreground">PLANNER</span>
+      </h1>
+    </div>
+  );
+}
 
 export function Sidebar() {
   const [location] = useLocation();
   const { user, logout, isCoach, isAthlete, clearRole } = useAuth();
+  const { isOpen, close } = useSidebar();
 
   const coachItems = [
     { label: "Dashboard", icon: LayoutDashboard, href: "/" },
@@ -56,19 +111,26 @@ export function Sidebar() {
     ? `${user.firstName[0]}${user.lastName[0]}`
     : user?.email?.substring(0, 2).toUpperCase() || "U";
 
-  return (
-    <div className="h-screen w-64 bg-card border-r border-border flex flex-col fixed left-0 top-0">
-      <div className="p-6 border-b border-border/50">
+  const handleNavClick = () => {
+    close();
+  };
+
+  const sidebarContent = (
+    <div className="h-screen w-64 bg-card border-r border-border flex flex-col">
+      <div className="p-6 border-b border-border/50 flex items-center justify-between">
         <h1 className="text-2xl font-display font-bold text-primary tracking-wider italic" data-testid="text-app-name">
           TRAINING<span className="text-foreground">PLANNER</span>
         </h1>
+        <Button size="icon" variant="ghost" onClick={close} className="lg:hidden" data-testid="button-close-sidebar">
+          <X className="w-5 h-5" />
+        </Button>
       </div>
 
       <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto" data-testid="nav-sidebar">
         {navItems.map((item) => {
           const isActive = item.href === "/" ? location === "/" : location.startsWith(item.href);
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={item.href} onClick={handleNavClick}>
               <div
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-200 cursor-pointer group",
@@ -109,7 +171,7 @@ export function Sidebar() {
         </div>
         <div className="space-y-2">
           <button
-            onClick={() => clearRole()}
+            onClick={() => { clearRole(); close(); }}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-muted-foreground bg-muted/50 hover-elevate transition-all duration-200"
             data-testid="button-switch-role"
           >
@@ -117,7 +179,7 @@ export function Sidebar() {
             Switch Role
           </button>
           <button
-            onClick={() => logout()}
+            onClick={() => { logout(); close(); }}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium text-destructive bg-destructive/10 hover-elevate transition-all duration-200"
             data-testid="button-logout"
           >
@@ -127,5 +189,31 @@ export function Sidebar() {
         </div>
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar - always visible */}
+      <div className="hidden lg:block fixed left-0 top-0 z-30">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile sidebar - slide-in drawer */}
+      {isOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={close}
+          data-testid="sidebar-backdrop"
+        />
+      )}
+      <div
+        className={cn(
+          "lg:hidden fixed left-0 top-0 z-50 transition-transform duration-300 ease-in-out",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {sidebarContent}
+      </div>
+    </>
   );
 }

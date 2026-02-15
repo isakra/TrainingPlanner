@@ -26,6 +26,7 @@ import CoachInvitesPage from "@/pages/CoachInvitesPage";
 import MessagesPage from "@/pages/MessagesPage";
 import WellnessPage from "@/pages/WellnessPage";
 import { Loader2 } from "lucide-react";
+import { SidebarProvider } from "@/components/Sidebar";
 
 function ProtectedRoute({ component: Component, requiredRole }: { component: React.ComponentType; requiredRole?: "COACH" | "ATHLETE" }) {
   const { user, isLoading, hasRole, isCoach, isAthlete } = useAuth();
@@ -96,7 +97,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Router />
+        <SidebarProvider>
+          <Router />
+        </SidebarProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
