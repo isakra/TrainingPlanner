@@ -1,6 +1,5 @@
-const CACHE_NAME = 'trainingplanner-v1';
+const CACHE_NAME = 'trainingplanner-v2';
 const PRECACHE_URLS = [
-  '/',
   '/icon-192.png',
   '/icon-512.png',
 ];
@@ -27,6 +26,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (url.pathname.startsWith('/api/')) return;
+
+  if (event.request.mode === 'navigate') return;
 
   event.respondWith(
     fetch(event.request)
