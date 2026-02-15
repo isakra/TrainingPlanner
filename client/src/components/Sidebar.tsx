@@ -18,6 +18,7 @@ import {
   KeyRound,
   Menu,
   X,
+  Mail,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -147,6 +148,18 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      <div className="px-4 pb-4">
+        <a
+          href="mailto:isakrafnsson@gmail.com?subject=TrainingPlanner%20Feedback"
+          onClick={handleNavClick}
+          className="flex items-center gap-3 px-4 py-3 rounded-md text-sm text-muted-foreground hover-elevate transition-all duration-200"
+          data-testid="link-contact-us"
+        >
+          <Mail className="w-5 h-5 stroke-2" />
+          <span>Contact Us</span>
+        </a>
+      </div>
 
       <div className="p-4 mt-auto border-t border-border/50 bg-secondary/20">
         <div className="flex items-center gap-3 mb-4 px-2">
