@@ -154,6 +154,12 @@ export async function registerRoutes(
     res.json(ex);
   });
 
+  app.get("/api/exercises/:id", async (req, res) => {
+    const exercise = await storage.getExerciseById(Number(req.params.id));
+    if (!exercise) return res.status(404).json({ message: "Exercise not found" });
+    res.json(exercise);
+  });
+
   app.post(api.exercises.create.path, async (req, res) => {
     try {
       const input = api.exercises.create.input.parse(req.body);

@@ -11,9 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowLeft, CheckCircle, Dumbbell, Loader2, Save, Heart, Activity, MessageSquare
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  ArrowLeft, CheckCircle, Dumbbell, Loader2, Save, Heart, Activity, MessageSquare, Info
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { Exercise } from "@shared/schema";
 import { format } from "date-fns";
 import { useBluetoothHeartRate } from "@/hooks/use-bluetooth";
 import { BluetoothConnectButton, BluetoothLiveCard, BluetoothErrorBanner } from "@/components/BluetoothPanel";
@@ -46,6 +50,14 @@ export default function AthleteWorkoutSessionPage() {
   const [overallNotes, setOverallNotes] = useState("");
   const [initialized, setInitialized] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null);
+  const [selectedExerciseNotes, setSelectedExerciseNotes] = useState<string | null>(null);
+
+  const { data: exerciseDetail, isLoading: isExerciseLoading } = useQuery<Exercise>({
+    queryKey: ["/api/exercises", selectedExerciseId],
+    queryFn: () => apiGet(`/api/exercises/${selectedExerciseId}`),
+    enabled: !!selectedExerciseId,
+  });
 
   interface WorkoutCommentWithAuthor {
     id: number;
@@ -292,7 +304,21 @@ export default function AthleteWorkoutSessionPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Dumbbell className="w-4 h-4 text-primary" />
-                  {exName}
+                  {exerciseData?.exerciseId ? (
+                    <button
+                      className="flex items-center gap-1 underline decoration-dotted underline-offset-4 cursor-pointer text-left"
+                      onClick={() => {
+                        setSelectedExerciseId(exerciseData.exerciseId);
+                        setSelectedExerciseNotes(exerciseData.notes || null);
+                      }}
+                      data-testid={`button-exercise-info-${exName.replace(/\s+/g, '-').toLowerCase()}`}
+                    >
+                      {exName}
+                      <Info className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  ) : (
+                    exName
+                  )}
                 </CardTitle>
                 {rx && (
                   <p className="text-xs text-muted-foreground">
@@ -406,6 +432,58 @@ export default function AthleteWorkoutSessionPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Sheet open={!!selectedExerciseId} onOpenChange={(open) => { if (!open) { setSelectedExerciseId(null); setSelectedExerciseNotes(null); } }}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle data-testid="text-exercise-detail-name">
+              {isExerciseLoading ? "Loading..." : exerciseDetail?.name || "Exercise Details"}
+            </SheetTitle>
+            <SheetDescription>
+              {exerciseDetail?.category && (
+                <Badge variant="secondary" data-testid="badge-exercise-category">{exerciseDetail.category}</Badge>
+              )}
+            </SheetDescription>
+          </SheetHeader>
+
+          {isExerciseLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : exerciseDetail ? (
+            <div className="space-y-4 mt-4">
+              {exerciseDetail.videoUrl && (
+                <div data-testid="exercise-video-container">
+                  <h4 className="text-sm font-medium mb-2">Video</h4>
+                  <div className="aspect-video rounded-md overflow-hidden">
+                    <iframe
+                      src={exerciseDetail.videoUrl.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/")}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={exerciseDetail.name}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {exerciseDetail.instructions && (
+                <div data-testid="text-exercise-instructions">
+                  <h4 className="text-sm font-medium mb-1">Instructions</h4>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{exerciseDetail.instructions}</p>
+                </div>
+              )}
+
+              {selectedExerciseNotes && (
+                <div data-testid="text-exercise-coach-notes">
+                  <h4 className="text-sm font-medium mb-1">Coach Notes</h4>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selectedExerciseNotes}</p>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </Layout>
   );
 }
