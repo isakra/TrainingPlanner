@@ -204,7 +204,7 @@ function CoachDashboard() {
                       <div className="flex items-center justify-between gap-4 flex-wrap">
                         <div className="flex-1">
                           <p className="font-semibold text-foreground">{conversation.participantName}</p>
-                          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{conversation.lastMessage}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{typeof conversation.lastMessage === 'object' && conversation.lastMessage ? conversation.lastMessage.content : conversation.lastMessage || "No messages yet"}</p>
                         </div>
                         <MessageSquare className="w-5 h-5 text-primary flex-shrink-0" />
                       </div>
