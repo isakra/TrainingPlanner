@@ -1,3 +1,4 @@
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -27,6 +28,44 @@ import MessagesPage from "@/pages/MessagesPage";
 import WellnessPage from "@/pages/WellnessPage";
 import { Loader2 } from "lucide-react";
 import { SidebarProvider } from "@/components/Sidebar";
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("React Error Boundary caught:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: "40px", background: "#0a0f1a", color: "#fff", minHeight: "100vh", fontFamily: "system-ui" }}>
+          <h1 style={{ fontSize: "24px", marginBottom: "16px", color: "#f87171" }}>Something went wrong</h1>
+          <p style={{ marginBottom: "12px", color: "#94a3b8" }}>The app encountered an error. Try refreshing the page.</p>
+          <pre style={{ background: "#1e293b", padding: "16px", borderRadius: "8px", overflow: "auto", fontSize: "13px", color: "#fbbf24", maxHeight: "300px" }}>
+            {this.state.error?.message}
+            {"\n"}
+            {this.state.error?.stack}
+          </pre>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ marginTop: "20px", padding: "10px 24px", background: "#6366f1", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "14px" }}
+          >
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function ProtectedRoute({ component: Component, requiredRole }: { component: React.ComponentType; requiredRole?: "COACH" | "ATHLETE" }) {
   const { user, isLoading, hasRole, isCoach, isAthlete } = useAuth();
@@ -95,14 +134,16 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <SidebarProvider>
-          <Router />
-        </SidebarProvider>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <SidebarProvider>
+            <Router />
+          </SidebarProvider>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

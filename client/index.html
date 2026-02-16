@@ -16,17 +16,41 @@
     <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <title>TrainingPlanner</title>
     <style>
-      #tp-loading{position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0f1a;display:flex;align-items:center;justify-content:center;z-index:99999}
-      #tp-loading .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,0.1);border-top-color:#6366f1;border-radius:50%;animation:tpspin 0.8s linear infinite}
+      #tp-loading{position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;color:#94a3b8;font-family:system-ui}
+      #tp-loading .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,0.1);border-top-color:#6366f1;border-radius:50%;animation:tpspin 0.8s linear infinite;margin-bottom:16px}
+      #tp-loading .tp-msg{font-size:14px}
       @keyframes tpspin{to{transform:rotate(360deg)}}
+      #tp-debug{position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#fbbf24;font-size:12px;padding:12px 16px;z-index:999999;font-family:monospace;max-height:40vh;overflow:auto;display:none;border-top:2px solid #f87171}
+      #tp-debug.show{display:block}
     </style>
   </head>
   <body>
     <div id="root">
-      <div id="tp-loading"><div class="spinner"></div></div>
+      <div id="tp-loading">
+        <div class="spinner"></div>
+        <div class="tp-msg">Loading TrainingPlanner...</div>
+      </div>
     </div>
+    <div id="tp-debug"></div>
     <script>
       (function() {
+        var dbg = document.getElementById('tp-debug');
+        var errors = [];
+        function showDebug(msg) {
+          errors.push(new Date().toISOString().slice(11,19) + ' ' + msg);
+          dbg.textContent = errors.join('\n');
+          dbg.className = 'show';
+          console.error('[TP Debug]', msg);
+        }
+
+        window.onerror = function(msg, src, line, col, err) {
+          showDebug('JS Error: ' + msg + ' at ' + (src||'?') + ':' + line + ':' + col);
+          return false;
+        };
+        window.addEventListener('unhandledrejection', function(e) {
+          showDebug('Unhandled Promise: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+        });
+
         if ('caches' in window) {
           caches.keys().then(function(names) {
             names.forEach(function(n) { caches.delete(n); });
@@ -43,6 +67,21 @@
             });
           });
         }
+
+        setTimeout(function() {
+          var root = document.getElementById('root');
+          var loading = document.getElementById('tp-loading');
+          if (loading && loading.parentNode === root) {
+            showDebug('App did not mount after 10s. React may have failed to load.');
+          } else if (root && root.children.length === 0) {
+            showDebug('Root is empty after 10s. React may have crashed.');
+          } else if (root) {
+            var text = root.textContent || '';
+            if (text.trim().length < 5) {
+              showDebug('Root has no visible text after 10s. innerHTML length: ' + root.innerHTML.length);
+            }
+          }
+        }, 10000);
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
