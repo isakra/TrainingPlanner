@@ -18,46 +18,32 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
     <script>
-      if ('serviceWorker' in navigator) {
+      (function() {
+        var PURGE_KEY = 'tp_sw_purge_v4';
+        if (localStorage.getItem(PURGE_KEY)) return;
+        var didWork = false;
         if ('caches' in window) {
           caches.keys().then(function(names) {
-            names.forEach(function(name) {
-              if (name !== 'trainingplanner-v3') {
-                caches.delete(name);
-              }
-            });
+            if (names.length > 0) didWork = true;
+            return Promise.all(names.map(function(n) { return caches.delete(n); }));
           });
         }
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js').then(function(reg) {
-            reg.addEventListener('updatefound', function() {
-              var newWorker = reg.installing;
-              if (newWorker) {
-                newWorker.addEventListener('statechange', function() {
-                  if (newWorker.state === 'activated') {
-                    window.location.reload();
-                  }
-                });
-              }
-            });
-          }).catch(function() {});
-          setTimeout(function() {
-            var root = document.getElementById('root');
-            if (root && root.children.length === 0) {
-              navigator.serviceWorker.getRegistrations().then(function(regs) {
-                regs.forEach(function(r) { r.unregister(); });
-              });
-              caches.keys().then(function(names) {
-                return Promise.all(names.map(function(n) { return caches.delete(n); }));
-              }).then(function() {
-                window.location.reload();
-              });
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            if (regs.length > 0) didWork = true;
+            return Promise.all(regs.map(function(r) { return r.unregister(); }));
+          }).then(function() {
+            localStorage.setItem(PURGE_KEY, '1');
+            if (didWork) {
+              window.location.reload();
             }
-          }, 5000);
-        });
-      }
+          });
+        } else {
+          localStorage.setItem(PURGE_KEY, '1');
+        }
+      })();
     </script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
