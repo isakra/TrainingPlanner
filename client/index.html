@@ -21,8 +21,41 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            names.forEach(function(name) {
+              if (name !== 'trainingplanner-v3') {
+                caches.delete(name);
+              }
+            });
+          });
+        }
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            reg.addEventListener('updatefound', function() {
+              var newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', function() {
+                  if (newWorker.state === 'activated') {
+                    window.location.reload();
+                  }
+                });
+              }
+            });
+          }).catch(function() {});
+          setTimeout(function() {
+            var root = document.getElementById('root');
+            if (root && root.children.length === 0) {
+              navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(r) { r.unregister(); });
+              });
+              caches.keys().then(function(names) {
+                return Promise.all(names.map(function(n) { return caches.delete(n); }));
+              }).then(function() {
+                window.location.reload();
+              });
+            }
+          }, 5000);
         });
       }
     </script>
